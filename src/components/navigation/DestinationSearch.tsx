@@ -20,6 +20,7 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
   
   const debouncedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchRequestId = useRef(0);
 
   useEffect(() => {
     // Handle click outside
@@ -42,16 +43,22 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
     if (debouncedTimeout.current) clearTimeout(debouncedTimeout.current);
 
     debouncedTimeout.current = setTimeout(async () => {
+      const currentId = ++searchRequestId.current;
       setIsSearching(true);
       setError(false);
       try {
         const res = await searchDestination(query, currentLocation);
+        if (searchRequestId.current !== currentId) return; // Ignore stale result
+        
         setResults(res);
         setShowResults(true);
       } catch (err) {
+        if (searchRequestId.current !== currentId) return;
         setError(true);
       } finally {
-        setIsSearching(false);
+        if (searchRequestId.current === currentId) {
+          setIsSearching(false);
+        }
       }
     }, 300); // More responsive debounce
 

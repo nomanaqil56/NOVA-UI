@@ -7,10 +7,17 @@ export const useNavigationEngine = (
 ) => {
   const lastLocation = useRef<GPSLocation | null>(null);
   const targetLocation = useRef<GPSLocation | null>(null);
+  const currentVisualLocation = useRef<GPSLocation | null>(null);
+  
   const startTime = useRef<number>(0);
   const lastUpdateTime = useRef<number>(0);
   const currentDuration = useRef<number>(1000);
   const animationFrame = useRef<number>(0);
+
+  const onUpdateRef = useRef(onUpdate);
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
 
   useEffect(() => {
     if (!rawLocation) return;
@@ -20,23 +27,20 @@ export const useNavigationEngine = (
       // First fix
       lastLocation.current = rawLocation;
       targetLocation.current = rawLocation;
+      currentVisualLocation.current = rawLocation;
       lastUpdateTime.current = now;
-      onUpdate(rawLocation);
+      onUpdateRef.current(rawLocation);
       return;
     }
 
-    // Calculate dynamic duration based on actual update rate
     const delta = now - lastUpdateTime.current;
     if (delta > 0) {
-      // Clamp between 500ms and 3000ms to handle temporary pauses/fast updates
       currentDuration.current = Math.max(500, Math.min(3000, delta));
     }
     lastUpdateTime.current = now;
 
-    // We start from WHEREVER the animation currently interpolated to!
-    // But since we don't store intermediate state, we can just start from targetLocation 
-    // which the PREVIOUS animation reached (or almost reached).
-    lastLocation.current = targetLocation.current; 
+    // Start from wherever the animation ACTUALLY is right now, not where it was supposed to finish.
+    lastLocation.current = currentVisualLocation.current || targetLocation.current; 
     targetLocation.current = rawLocation;
     startTime.current = now;
 
@@ -46,34 +50,37 @@ export const useNavigationEngine = (
       let progress = (time - startTime.current) / currentDuration.current;
       if (progress > 1) progress = 1;
 
-      // Linear easing is mathematically required for constant vehicle velocity between ticks.
-      // Rubber-banding (ease-in-out) makes the vehicle look like it's braking and accelerating every 1s.
-      const easeProgress = progress;
+      const easeProgress = progress; // Linear for velocity consistency
 
-      // Interpolate LngLat
       const lng = lastLocation.current.longitude + (targetLocation.current.longitude - lastLocation.current.longitude) * easeProgress;
       const lat = lastLocation.current.latitude + (targetLocation.current.latitude - lastLocation.current.latitude) * easeProgress;
       
-      // Interpolate Heading handling 0/360 wrap
-      let h1 = lastLocation.current.heading || 0;
-      let h2 = targetLocation.current.heading || 0;
-      let diff = h2 - h1;
+      let h1 = lastLocation.current.heading ?? 0;
+      let h2 = targetLocation.current.heading ?? 0;
       
-      if (diff > 180) diff -= 360;
-      else if (diff < -180) diff += 360;
-      
-      let newHeading = h1 + diff * easeProgress;
-      if (newHeading < 0) newHeading += 360;
-      if (newHeading >= 360) newHeading -= 360;
+      // Only interpolate if both headings are valid numbers
+      let newHeading = h2;
+      if (lastLocation.current.heading !== null && targetLocation.current.heading !== null) {
+        let diff = h2 - h1;
+        if (diff > 180) diff -= 360;
+        else if (diff < -180) diff += 360;
+        
+        newHeading = h1 + diff * easeProgress;
+        if (newHeading < 0) newHeading += 360;
+        if (newHeading >= 360) newHeading -= 360;
+      } else if (targetLocation.current.heading === null) {
+        newHeading = h1; // Keep last known heading if null
+      }
 
       const interpolated: GPSLocation = {
         ...targetLocation.current,
         longitude: lng,
         latitude: lat,
-        heading: newHeading
+        heading: targetLocation.current.heading === null ? null : newHeading
       };
 
-      onUpdate(interpolated);
+      currentVisualLocation.current = interpolated;
+      onUpdateRef.current(interpolated);
 
       if (progress < 1) {
         animationFrame.current = requestAnimationFrame(animate);
@@ -88,5 +95,5 @@ export const useNavigationEngine = (
     return () => {
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
     };
-  }, [rawLocation, onUpdate]);
+  }, [rawLocation]); // Removed onUpdate from dependencies
 };

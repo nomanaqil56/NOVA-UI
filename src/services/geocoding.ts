@@ -14,10 +14,23 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c;
 };
 
+const searchCache: Record<string, GeocodingResult[]> = {};
+
 export const searchDestination = async (query: string, location: GPSLocation | null): Promise<GeocodingResult[]> => {
   const cleanQuery = query.trim().replace(/\s+/g, ' ');
   if (!cleanQuery || cleanQuery.length < 2) return [];
   
+  let cacheKey = cleanQuery.toLowerCase();
+  if (location) {
+    const latGrid = Math.round(location.latitude * 10) / 10;
+    const lonGrid = Math.round(location.longitude * 10) / 10;
+    cacheKey += `_${latGrid}_${lonGrid}`;
+  }
+
+  if (searchCache[cacheKey]) {
+    return searchCache[cacheKey];
+  }
+
   try {
     let url = `${NOMINATIM_BASE_URL}?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=10`;
     
@@ -105,7 +118,9 @@ export const searchDestination = async (query: string, location: GPSLocation | n
     // Sort by score
     results.sort((a: any, b: any) => a.score - b.score);
 
-    return results.slice(0, 5); // Return top 5
+    const finalResults = results.slice(0, 5); // Return top 5
+    searchCache[cacheKey] = finalResults;
+    return finalResults;
   } catch (error) {
     console.error('Geocoding error:', error);
     throw error; // Throw error to trigger error state in UI
