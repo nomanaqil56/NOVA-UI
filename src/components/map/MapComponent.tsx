@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Map as MapLibreMap, setWorkerUrl, Marker, LngLatBounds, GeoJSONSource } from 'maplibre-gl';
-import type { StyleSpecification } from 'maplibre-gl';
+
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Compass, LocateFixed, RefreshCw, AlertTriangle, Bug } from 'lucide-react';
 import type { GPSLocation, RouteOption } from '../../types/navigation';
 import { cn } from '../../lib/utils';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import { novaStyle } from '../../map/novaStyle';
+
 
 setWorkerUrl(workerUrl);
 
@@ -337,8 +337,7 @@ export const MapComponent = ({
   };
 
   return (
-    <div className="absolute inset-0 bg-transparent">
-      {/* 
+    <div className="absolute inset-0 bg-[#080A0D]">
       {(mapStatus === 'INITIALIZING' || mapStatus === 'LOADING') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#080A0D]/90 backdrop-blur-sm text-primary transition-opacity duration-500">
           <RefreshCw className="w-8 h-8 text-accent animate-spin mb-4" />
@@ -346,7 +345,6 @@ export const MapComponent = ({
           <p className="text-primary-muted font-medium">Loading navigation data...</p>
         </div>
       )}
-      */}
 
       {mapStatus === 'ERROR' && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#080A0D]/90 backdrop-blur-sm text-primary">
@@ -379,7 +377,7 @@ export const MapComponent = ({
 
       <div ref={mapContainer} className="absolute inset-0" />
       
-      {/* <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#080A0D_100%)] opacity-60 z-10" /> */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#080A0D_100%)] opacity-60 z-10" />
 
       <div className="absolute bottom-8 right-8 flex flex-col gap-3 z-30">
         <button 
