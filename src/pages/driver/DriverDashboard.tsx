@@ -136,11 +136,14 @@ export const DriverDashboard = () => {
       {/* Top Left: Search & Destination */}
       <div className="absolute top-6 left-6 z-10 w-96 flex flex-col gap-4">
         {!tripActive && (
-          <DestinationSearch onSelect={(res) => {
-            setDestination(res);
-            setRoutes([]);
-            setActiveRouteId(null);
-          }} />
+          <DestinationSearch 
+            currentLocation={currentLocation}
+            onSelect={(res) => {
+              setDestination(res);
+              setRoutes([]);
+              setActiveRouteId(null);
+            }} 
+          />
         )}
         
         {destination && (

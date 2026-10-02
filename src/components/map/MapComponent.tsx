@@ -243,11 +243,16 @@ export const MapComponent = ({
   useEffect(() => {
     if (mapStatus === 'READY' && currentLocation && !cameraInitialized.current && mapRef.current) {
       cameraInitialized.current = true;
-      mapRef.current.jumpTo({
+      recenterTime.current = performance.now() + 1000; // block updateVisuals for 2500ms
+      
+      mapRef.current.flyTo({
         center: [currentLocation.longitude, currentLocation.latitude],
         zoom: 15.5,
         pitch: 0,
-        bearing: 0
+        bearing: 0,
+        duration: 2500,
+        essential: true, // Respects reduced-motion if configured in browser, but essential for navigation
+        curve: 1.42 // Default flyTo curve for a smooth cinematic transition
       });
     }
   }, [mapStatus, currentLocation]);

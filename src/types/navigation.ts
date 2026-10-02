@@ -13,6 +13,9 @@ export interface GeocodingResult {
   displayName: string;
   lat: number;
   lon: number;
+  type?: string;
+  score?: number;
+  distance?: number;
 }
 
 export interface RouteGeometry {
