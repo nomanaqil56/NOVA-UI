@@ -23,8 +23,16 @@ export const getRoute = async (start: [number, number], end: [number, number]): 
       return [];
     }
 
-    return data.routes.map((r: any, index: number) => {
-      let name = index === 0 ? 'FASTEST' : index === 1 ? 'SHORTEST' : 'ALTERNATIVE';
+    const routes = data.routes;
+    const minDuration = Math.min(...routes.map((r: any) => r.duration));
+    const minDistance = Math.min(...routes.map((r: any) => r.distance));
+
+    return routes.map((r: any, index: number) => {
+      let name = 'ALTERNATIVE';
+      if (r.duration === minDuration && r.distance === minDistance) name = 'OPTIMAL';
+      else if (r.duration === minDuration) name = 'FASTEST';
+      else if (r.distance === minDistance) name = 'SHORTEST';
+
       return {
         id: `route-${index}`,
         name,

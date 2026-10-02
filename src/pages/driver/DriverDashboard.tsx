@@ -1,13 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapComponent } from '../../components/map/MapComponent';
 import { DestinationSearch } from '../../components/navigation/DestinationSearch';
 import { RoutePanel } from '../../components/navigation/RoutePanel';
 import { GPSStatus } from '../../components/navigation/GPSStatus';
-import { Battery, Zap, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Battery, Zap, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { GPSLocation, GPSState, RouteOption, GeocodingResult } from '../../types/navigation';
 import { startGPS, stopGPS } from '../../services/geolocation';
 import { getRoute } from '../../services/routing';
+
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3; // metres
+  const p1 = lat1 * Math.PI/180;
+  const p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180;
+  const dl = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dp/2) * Math.sin(dp/2) +
+            Math.cos(p1) * Math.cos(p2) *
+            Math.sin(dl/2) * Math.sin(dl/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
 
 export const DriverDashboard = () => {
   // Navigation State
@@ -18,27 +31,28 @@ export const DriverDashboard = () => {
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Vehicle Simulation State (from old UI)
   const [overrideActive, setOverrideActive] = useState(false);
   const [overrideHoldTime, setOverrideHoldTime] = useState(0);
 
-  let holdTimer: ReturnType<typeof setInterval>;
+  const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleOverrideDown = () => {
     let time = 0;
-    holdTimer = setInterval(() => {
+    holdTimer.current = setInterval(() => {
       time += 100;
       setOverrideHoldTime(time);
       if (time >= 2000) {
         setOverrideActive(true);
-        clearInterval(holdTimer);
+        if (holdTimer.current) clearInterval(holdTimer.current);
       }
     }, 100);
   };
 
   const handleOverrideUp = () => {
-    clearInterval(holdTimer);
+    if (holdTimer.current) clearInterval(holdTimer.current);
     if (!overrideActive) setOverrideHoldTime(0);
   };
 
@@ -58,6 +72,7 @@ export const DriverDashboard = () => {
     if (!destination || !currentLocation) return;
     
     const calculateRoute = async () => {
+      setIsRecalculating(true);
       const newRoutes = await getRoute(
         [currentLocation.longitude, currentLocation.latitude],
         [destination.lon, destination.lat]
@@ -66,14 +81,28 @@ export const DriverDashboard = () => {
         setRoutes(newRoutes);
         setActiveRouteId(newRoutes[0].id);
       }
+      setIsRecalculating(false);
     };
 
     if (routes.length === 0) {
-      // First time route calculation
       calculateRoute();
     } else {
-      // Live recalculation (debounce and distance threshold would go here)
-      // For simplicity in this demo, we won't aggressively recalculate unless requested
+      const active = routes.find(r => r.id === activeRouteId);
+      if (active && !isRecalculating) {
+        let minDistance = Infinity;
+        for (const coord of active.geometry.coordinates) {
+          const dist = getDistance(currentLocation.latitude, currentLocation.longitude, coord[1], coord[0]);
+          if (dist < minDistance) minDistance = dist;
+        }
+
+        const accuracy = currentLocation.accuracy || 10;
+        const threshold = Math.max(50, accuracy + 20);
+
+        if (minDistance > threshold) {
+          console.log(`[NAVIGATION] Off route by ${minDistance.toFixed(1)}m (Threshold: ${threshold.toFixed(1)}m). Recalculating...`);
+          calculateRoute();
+        }
+      }
     }
   }, [destination, currentLocation]);
 
@@ -112,11 +141,19 @@ export const DriverDashboard = () => {
       </div>
 
       {/* Top Right: Status */}
-      <GPSStatus 
-        gpsState={gpsState} 
-        accuracy={currentLocation?.accuracy || null}
-        onEnableGPS={handleEnableGPS}
-      />
+      <div className="absolute top-6 right-6 z-10 flex flex-col gap-2 items-end">
+        <GPSStatus 
+          gpsState={gpsState} 
+          accuracy={currentLocation?.accuracy || null}
+          onEnableGPS={handleEnableGPS}
+        />
+        {isRecalculating && (
+          <div className="glass-panel px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-500 flex items-center gap-2 shadow-lg">
+            <RefreshCw className="w-3 h-3 animate-spin" />
+            <span className="text-[10px] font-bold tracking-wider">RECALCULATING ROUTE</span>
+          </div>
+        )}
+      </div>
 
       {/* Bottom Left: Autonomous Status & Speed */}
       <div className="absolute bottom-8 left-6 z-10 flex flex-col gap-6 w-80">
