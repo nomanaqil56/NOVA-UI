@@ -15,12 +15,8 @@ function initializeRouteLayers(map: MapLibreMap) {
     map.addSource('route', {
       type: 'geojson',
       data: {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: []
-        }
+        type: 'FeatureCollection',
+        features: []
       }
     });
   }
@@ -221,12 +217,8 @@ export const MapComponent = ({
       });
     } else if (safeSource) {
       safeSource.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: []
-        }
+        type: 'FeatureCollection',
+        features: []
       });
     }
   }, [activeRoute, mapStatus]);
