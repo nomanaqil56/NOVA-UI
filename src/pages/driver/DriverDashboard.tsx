@@ -110,7 +110,7 @@ export const DriverDashboard = () => {
   const speed = currentLocation?.speed ?? 0; // km/h
 
   return (
-    <div className="w-full h-full relative text-primary flex">
+    <div className="absolute inset-0 text-primary">
       {/* Background Map Layer */}
       <div className="absolute inset-0 z-0">
         <MapComponent 
