@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, Building2, Map, Navigation, X } from 'lucide-react';
+import { Search, MapPin, Building2, Navigation, X } from 'lucide-react';
 import { searchDestination } from '../../services/geocoding';
 import type { GeocodingResult, GPSLocation } from '../../types/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
