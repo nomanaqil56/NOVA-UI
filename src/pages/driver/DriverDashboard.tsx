@@ -32,6 +32,7 @@ export const DriverDashboard = () => {
   const [isFollowing, setIsFollowing] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [tripActive, setTripActive] = useState(false);
 
   // Vehicle Simulation State (from old UI)
   const [overrideActive, setOverrideActive] = useState(false);
@@ -67,6 +68,8 @@ export const DriverDashboard = () => {
     return stopGPS;
   }, [isDemoMode]);
 
+  const offRouteCount = useRef(0);
+
   // Route recalculation logic
   useEffect(() => {
     if (!destination || !currentLocation) return;
@@ -80,6 +83,7 @@ export const DriverDashboard = () => {
       if (newRoutes.length > 0) {
         setRoutes(newRoutes);
         setActiveRouteId(newRoutes[0].id);
+        offRouteCount.current = 0;
       }
       setIsRecalculating(false);
     };
@@ -88,7 +92,7 @@ export const DriverDashboard = () => {
       calculateRoute();
     } else {
       const active = routes.find(r => r.id === activeRouteId);
-      if (active && !isRecalculating) {
+      if (active && !isRecalculating && tripActive) {
         let minDistance = Infinity;
         for (const coord of active.geometry.coordinates) {
           const dist = getDistance(currentLocation.latitude, currentLocation.longitude, coord[1], coord[0]);
@@ -99,12 +103,18 @@ export const DriverDashboard = () => {
         const threshold = Math.max(50, accuracy + 20);
 
         if (minDistance > threshold) {
-          console.log(`[NAVIGATION] Off route by ${minDistance.toFixed(1)}m (Threshold: ${threshold.toFixed(1)}m). Recalculating...`);
-          calculateRoute();
+          offRouteCount.current += 1;
+          console.log(`[NAVIGATION] Off route by ${minDistance.toFixed(1)}m. Count: ${offRouteCount.current}`);
+          if (offRouteCount.current >= 3) { // Require 3 sustained updates
+            console.log(`[NAVIGATION] Sustained deviation detected. Recalculating...`);
+            calculateRoute();
+          }
+        } else {
+          offRouteCount.current = 0; // Reset if we are back on route
         }
       }
     }
-  }, [destination, currentLocation]);
+  }, [destination, currentLocation, tripActive]);
 
   const activeRoute = routes.find(r => r.id === activeRouteId) || null;
   const speed = currentLocation?.speed ?? 0; // km/h
@@ -119,16 +129,19 @@ export const DriverDashboard = () => {
           activeRoute={activeRoute}
           isFollowing={isFollowing}
           setIsFollowing={setIsFollowing}
+          tripActive={tripActive}
         />
       </div>
 
       {/* Top Left: Search & Destination */}
       <div className="absolute top-6 left-6 z-10 w-96 flex flex-col gap-4">
-        <DestinationSearch onSelect={(res) => {
-          setDestination(res);
-          setRoutes([]);
-          setActiveRouteId(null);
-        }} />
+        {!tripActive && (
+          <DestinationSearch onSelect={(res) => {
+            setDestination(res);
+            setRoutes([]);
+            setActiveRouteId(null);
+          }} />
+        )}
         
         {destination && (
           <RoutePanel 
@@ -136,6 +149,9 @@ export const DriverDashboard = () => {
             routes={routes}
             activeRouteId={activeRouteId}
             onSelectRoute={setActiveRouteId}
+            onStartNavigation={() => setTripActive(true)}
+            tripActive={tripActive}
+            onCancelTrip={() => setTripActive(false)}
           />
         )}
       </div>

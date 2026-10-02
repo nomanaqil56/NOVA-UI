@@ -8,9 +8,12 @@ interface RoutePanelProps {
   routes: RouteOption[];
   activeRouteId: string | null;
   onSelectRoute: (id: string) => void;
+  onStartNavigation: () => void;
+  onCancelTrip: () => void;
+  tripActive: boolean;
 }
 
-export const RoutePanel = ({ destination, routes, activeRouteId, onSelectRoute }: RoutePanelProps) => {
+export const RoutePanel = ({ destination, routes, activeRouteId, onSelectRoute, onStartNavigation, onCancelTrip, tripActive }: RoutePanelProps) => {
   if (!destination || routes.length === 0) return null;
 
   const activeRoute = routes.find(r => r.id === activeRouteId) || routes[0];
@@ -46,22 +49,41 @@ export const RoutePanel = ({ destination, routes, activeRouteId, onSelectRoute }
         </div>
       </div>
       
-      <div className="flex gap-2">
-        {routes.map(r => (
+      {!tripActive ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-2">
+            {routes.map(r => (
+              <button 
+                key={r.id}
+                onClick={() => onSelectRoute(r.id)}
+                className={cn(
+                  "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
+                  r.id === activeRouteId 
+                    ? "bg-accent/20 border border-accent/40 text-accent" 
+                    : "bg-surface/50 border border-border text-primary-muted hover:text-primary hover:bg-surface"
+                )}
+              >
+                {r.name}
+              </button>
+            ))}
+          </div>
           <button 
-            key={r.id}
-            onClick={() => onSelectRoute(r.id)}
-            className={cn(
-              "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
-              r.id === activeRouteId 
-                ? "bg-accent/20 border border-accent/40 text-accent" 
-                : "bg-surface/50 border border-border text-primary-muted hover:text-primary hover:bg-surface"
-            )}
+            onClick={onStartNavigation}
+            className="w-full py-3 bg-accent/90 hover:bg-accent text-black font-bold tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(0,210,255,0.4)] hover:shadow-[0_0_25px_rgba(0,210,255,0.6)]"
           >
-            {r.name}
+            START NAVIGATION
           </button>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <button 
+            onClick={onCancelTrip}
+            className="flex-1 py-3 bg-surface border border-border hover:border-red-500/50 hover:text-red-400 text-primary-muted font-bold tracking-widest rounded-xl transition-all text-xs"
+          >
+            CANCEL TRIP
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };

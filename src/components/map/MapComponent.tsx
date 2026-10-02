@@ -7,6 +7,7 @@ import type { GPSLocation, RouteOption } from '../../types/navigation';
 import { cn } from '../../lib/utils';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { novaStyle } from '../../map/novaStyle';
+import { useNavigationEngine } from '../../hooks/useNavigationEngine';
 
 
 setWorkerUrl(workerUrl);
@@ -58,6 +59,7 @@ interface MapComponentProps {
   activeRoute: RouteOption | null;
   isFollowing: boolean;
   setIsFollowing: (follow: boolean) => void;
+  tripActive: boolean;
 }
 
 export const MapComponent = ({
@@ -65,7 +67,8 @@ export const MapComponent = ({
   destination,
   activeRoute,
   isFollowing,
-  setIsFollowing
+  setIsFollowing,
+  tripActive
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -80,7 +83,7 @@ export const MapComponent = ({
     tiles: 'WAITING',
     errorCount: 0
   });
-  const [showDiagnostics, setShowDiagnostics] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
   const initMap = useCallback(() => {
@@ -98,8 +101,8 @@ export const MapComponent = ({
       const map = new MapLibreMap({
         container: mapContainer.current,
         style: novaStyle as StyleSpecification,
-        center: [77.2090, 28.6139],
-        zoom: 13,
+        center: [0, 0], // Start zoomed out, jump to GPS instantly when available
+        zoom: 2,
         pitch: 0,
         attributionControl: false,
       });
@@ -152,11 +155,6 @@ export const MapComponent = ({
       map.on('load', () => {
         console.log('[MAP] map loaded');
         setMapStatus('READY');
-        
-        // Test Marker to verify MapLibre coordinate space
-        new Marker({ color: '#FF0000' })
-          .setLngLat([77.2090, 28.6139])
-          .addTo(map);
       });
 
       map.on('idle', () => {
@@ -236,21 +234,42 @@ export const MapComponent = ({
     }
   }, [activeRoute, mapStatus]);
 
-  // Update Vehicle Marker (Immediate if Ready)
-  useEffect(() => {
-    if (!mapRef.current || !currentLocation || mapStatus !== 'READY') return;
+  const recenterTime = useRef<number>(0);
+
+  // Update Vehicle Marker & Camera smoothly via requestAnimationFrame
+  const updateVisuals = useCallback((location: GPSLocation) => {
+    if (!mapRef.current || mapStatus !== 'READY') return;
     const map = mapRef.current;
-    const { longitude, latitude, heading } = currentLocation;
+    const { longitude, latitude, heading } = location;
 
     if (!vehicleMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'vehicle-marker-wrapper';
       el.innerHTML = `
-        <div class="absolute w-32 h-32 -ml-16 -mt-16 border border-[#00D2FF]/30 rounded-full animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
-        <div class="relative w-8 h-16 bg-gradient-to-b from-white to-[#9299A3] rounded-t-full rounded-b-md shadow-[0_0_20px_rgba(0,210,255,0.8)] flex items-center justify-center overflow-hidden" style="transform: translate(-50%, -50%);">
-          <div class="absolute top-2 w-5 h-4 bg-black/40 rounded-t-sm"></div>
-          <div class="absolute top-7 w-6 h-3 bg-black/30"></div>
-          <div class="absolute bottom-2 w-5 h-2 bg-red-500/80 blur-[1px]"></div>
+        <div class="absolute w-40 h-40 -ml-20 -mt-20 rounded-full bg-[radial-gradient(circle,rgba(0,210,255,0.15)_0%,transparent_70%)] opacity-0 transition-opacity duration-1000 \${tripActive ? 'opacity-100' : ''}"></div>
+        <div class="relative flex items-center justify-center transition-transform duration-300" style="transform: translate(-50%, -50%);">
+          <svg width="40" height="80" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8));">
+            <defs>
+              <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#2a3344" />
+                <stop offset="30%" stop-color="#1a202c" />
+                <stop offset="100%" stop-color="#0f172a" />
+              </linearGradient>
+              <linearGradient id="glassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#020617" />
+                <stop offset="100%" stop-color="#0f172a" />
+              </linearGradient>
+            </defs>
+            <path d="M 20,20 C 20,5 80,5 80,20 L 85,170 C 85,190 15,190 15,170 Z" fill="url(#bodyGrad)" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.3"/>
+            <path d="M 30,22 C 50,15 50,15 70,22 L 65,55 L 35,55 Z" fill="#334155" opacity="0.5" />
+            <path d="M 25,60 C 50,50 50,50 75,60 L 80,90 C 50,85 50,85 20,90 Z" fill="url(#glassGrad)" stroke="#1e293b" stroke-width="2"/>
+            <path d="M 28,95 L 72,95 L 68,140 L 32,140 Z" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+            <path d="M 30,145 L 70,145 L 75,160 C 50,155 50,155 25,160 Z" fill="#020617" />
+            <rect x="20" y="175" width="12" height="4" rx="2" fill="#ef4444" opacity="0.9" />
+            <rect x="68" y="175" width="12" height="4" rx="2" fill="#ef4444" opacity="0.9" />
+            <ellipse cx="25" cy="15" rx="6" ry="4" fill="#e0f2fe" opacity="0.9" />
+            <ellipse cx="75" cy="15" rx="6" ry="4" fill="#e0f2fe" opacity="0.9" />
+          </svg>
         </div>
       `;
       vehicleMarkerRef.current = new Marker({
@@ -269,15 +288,18 @@ export const MapComponent = ({
     }
 
     if (isFollowing) {
-      map.easeTo({
-        center: [longitude, latitude],
-        bearing: heading !== null ? heading : map.getBearing(),
-        padding: { bottom: 150, top: 0, left: 0, right: 0 },
-        duration: 1000,
-        easing: (t: number) => t
-      });
+      // Allow easeTo to finish before snapping every frame
+      if (performance.now() - recenterTime.current < 1500) return;
+      
+      // Using direct setters because we are inside a requestAnimationFrame loop
+      map.setCenter([longitude, latitude]);
+      if (heading !== null) map.setBearing(heading);
+      map.setPitch(tripActive ? 55 : (is3D ? 60 : 0));
+      map.setPadding(tripActive ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 });
     }
-  }, [currentLocation, isFollowing, mapStatus]);
+  }, [isFollowing, mapStatus, tripActive, is3D]);
+
+  useNavigationEngine(currentLocation, updateVisuals);
 
   // Destination Marker
   useEffect(() => {
@@ -311,17 +333,27 @@ export const MapComponent = ({
     }
   }, [destination, mapStatus]);
 
-  const handleRecenter = () => {
+  const handleRecenter = useCallback(() => {
     setIsFollowing(true);
     if (!mapRef.current || !currentLocation) return;
-    setIs3D(true);
+    recenterTime.current = performance.now();
+    setIs3D(tripActive ? true : false);
+    
     mapRef.current.easeTo({
       center: [currentLocation.longitude, currentLocation.latitude],
-      pitch: 60,
+      pitch: tripActive ? 55 : (is3D ? 60 : 0),
+      bearing: currentLocation.heading || mapRef.current.getBearing(),
+      padding: tripActive ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 },
       zoom: 16,
       duration: 1500
     });
-  };
+  }, [currentLocation, is3D, tripActive, setIsFollowing]);
+
+  useEffect(() => {
+    if (tripActive) {
+      handleRecenter();
+    }
+  }, [tripActive, handleRecenter]);
 
   const toggle3D = () => {
     if (!mapRef.current) return;
