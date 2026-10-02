@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@300;400;500;600&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-background: #080A0D;
+  
+  --color-surface: #101318;
+  --color-surface-elevated: #151920;
+  
+  --color-primary: #F4F6F8;
+  --color-primary-muted: #626A75;
+  
+  --color-border: rgba(255,255,255,0.07);
+  
+  --color-accent: #00D2FF;
+  
+  --font-sans: 'Inter', 'Manrope', 'SF Pro Display', sans-serif;
+  
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-primary);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background-color: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border);
+  }
+  
+  .glass-panel-elevated {
+    background-color: color-mix(in srgb, var(--color-surface-elevated) 80%, transparent);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  .text-shadow-glow {
+    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface-elevated);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary-muted);
+}
