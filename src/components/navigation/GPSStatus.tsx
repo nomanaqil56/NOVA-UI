@@ -14,7 +14,7 @@ export const GPSStatus = ({ gpsState, accuracy, onEnableGPS }: GPSStatusProps) =
 
   if (showPrompt && gpsState === 'DISCONNECTED') {
     return (
-      <div className="glass-panel-elevated rounded-2xl p-6 border-l-2 border-l-accent w-full max-w-sm absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 shadow-2xl">
+      <div className="glass-panel-elevated rounded-2xl p-6 border-l-2 border-l-accent w-full max-w-sm fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 shadow-2xl">
         <h3 className="text-lg font-bold mb-2">LOCATION SERVICES</h3>
         <p className="text-sm text-primary-muted mb-6">Enable location to activate live vehicle navigation.</p>
         <button 
@@ -31,7 +31,7 @@ export const GPSStatus = ({ gpsState, accuracy, onEnableGPS }: GPSStatusProps) =
   }
 
   return (
-    <div className="absolute top-6 right-6 z-10 flex gap-4">
+    <div className="flex gap-4">
       <div className={cn(
         "glass-panel rounded-full px-5 py-2 flex items-center gap-2 border",
         gpsState === 'CONNECTED' ? "border-green-500/30 bg-green-500/10 text-green-500" :

@@ -79,7 +79,7 @@ export const MapComponent = ({
     tiles: 'WAITING',
     errorCount: 0
   });
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(true);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
   const initMap = useCallback(() => {
@@ -113,7 +113,10 @@ export const MapComponent = ({
           layers: [{
             id: 'carto-dark-layer',
             type: 'raster',
-            source: 'carto-dark'
+            source: 'carto-dark',
+            paint: {
+              'raster-opacity': 1
+            }
           }]
         },
         center: [77.2090, 28.6139],
@@ -152,17 +155,29 @@ export const MapComponent = ({
         initializeRouteLayers(map);
       });
 
+      map.on('dataloading', (e) => {
+        if (e.dataType === 'source') {
+          console.log('[MAP] source dataloading (tile requested)');
+          setDiagnostics(d => ({ ...d, tiles: 'LOADING' }));
+        }
+      });
+
       map.on('sourcedata', (e) => {
         if (e.isSourceLoaded) {
           console.log('[MAP] source loaded');
           const sourceCount = Object.keys(map.getStyle().sources || {}).length;
-          setDiagnostics(d => ({ ...d, tiles: 'READY', sources: sourceCount }));
+          setDiagnostics(d => ({ ...d, tiles: 'RECEIVED', sources: sourceCount }));
         }
       });
 
       map.on('load', () => {
         console.log('[MAP] map loaded');
         setMapStatus('READY');
+        
+        // Test Marker to verify MapLibre coordinate space
+        new Marker({ color: '#FF0000' })
+          .setLngLat([77.2090, 28.6139])
+          .addTo(map);
       });
 
       map.on('idle', () => {
