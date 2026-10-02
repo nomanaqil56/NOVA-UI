@@ -216,25 +216,41 @@ export const MapComponent = ({
         }
       });
 
-      const bounds = new LngLatBounds();
-      activeRoute.geometry.coordinates.forEach(coord => {
-        bounds.extend(coord as [number, number]);
-      });
-      
-      setIsFollowing(false);
-      mapRef.current.fitBounds(bounds, {
-        padding: { top: 150, bottom: 250, left: 450, right: 100 },
-        duration: 1500
-      });
+      if (!tripActive) {
+        const bounds = new LngLatBounds();
+        activeRoute.geometry.coordinates.forEach(coord => {
+          bounds.extend(coord as [number, number]);
+        });
+        
+        setIsFollowing(false);
+        mapRef.current.fitBounds(bounds, {
+          padding: { top: 150, bottom: 250, left: 450, right: 100 },
+          duration: 1500
+        });
+      }
     } else if (safeSource) {
       safeSource.setData({
         type: 'FeatureCollection',
         features: []
       });
     }
-  }, [activeRoute, mapStatus]);
+  }, [activeRoute, mapStatus, tripActive, setIsFollowing]);
 
+  const cameraInitialized = useRef(false);
   const recenterTime = useRef<number>(0);
+
+  // Initialize camera when BOTH map is ready and GPS is available
+  useEffect(() => {
+    if (mapStatus === 'READY' && currentLocation && !cameraInitialized.current && mapRef.current) {
+      cameraInitialized.current = true;
+      mapRef.current.jumpTo({
+        center: [currentLocation.longitude, currentLocation.latitude],
+        zoom: 15.5,
+        pitch: 0,
+        bearing: 0
+      });
+    }
+  }, [mapStatus, currentLocation]);
 
   // Update Vehicle Marker & Camera smoothly via requestAnimationFrame
   const updateVisuals = useCallback((location: GPSLocation) => {
@@ -293,7 +309,14 @@ export const MapComponent = ({
       
       // Using direct setters because we are inside a requestAnimationFrame loop
       map.setCenter([longitude, latitude]);
-      if (heading !== null) map.setBearing(heading);
+      
+      if (tripActive && heading !== null) {
+        map.setBearing(heading);
+      } else if (!tripActive && !is3D) {
+        // If not active trip and not in 3D explore mode, enforce north-up
+        map.setBearing(0);
+      }
+      
       map.setPitch(tripActive ? 55 : (is3D ? 60 : 0));
       map.setPadding(tripActive ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 });
     }
@@ -342,17 +365,16 @@ export const MapComponent = ({
     mapRef.current.easeTo({
       center: [currentLocation.longitude, currentLocation.latitude],
       pitch: tripActive ? 55 : (is3D ? 60 : 0),
-      bearing: currentLocation.heading || mapRef.current.getBearing(),
+      bearing: tripActive ? (currentLocation.heading || mapRef.current.getBearing()) : 0,
       padding: tripActive ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 },
-      zoom: 16,
+      zoom: 15.5,
       duration: 1500
     });
   }, [currentLocation, is3D, tripActive, setIsFollowing]);
 
   useEffect(() => {
-    if (tripActive) {
-      handleRecenter();
-    }
+    // When tripActive changes (both true and false), perform a camera transition
+    handleRecenter();
   }, [tripActive, handleRecenter]);
 
   const toggle3D = () => {

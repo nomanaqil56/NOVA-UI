@@ -151,7 +151,13 @@ export const DriverDashboard = () => {
             onSelectRoute={setActiveRouteId}
             onStartNavigation={() => setTripActive(true)}
             tripActive={tripActive}
-            onCancelTrip={() => setTripActive(false)}
+            onCancelTrip={() => {
+              setTripActive(false);
+              setDestination(null);
+              setRoutes([]);
+              setActiveRouteId(null);
+              offRouteCount.current = 0;
+            }}
           />
         )}
       </div>

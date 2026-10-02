@@ -8,35 +8,47 @@ export const useNavigationEngine = (
   const lastLocation = useRef<GPSLocation | null>(null);
   const targetLocation = useRef<GPSLocation | null>(null);
   const startTime = useRef<number>(0);
+  const lastUpdateTime = useRef<number>(0);
+  const currentDuration = useRef<number>(1000);
   const animationFrame = useRef<number>(0);
 
   useEffect(() => {
     if (!rawLocation) return;
+    const now = performance.now();
 
-    if (!lastLocation.current) {
+    if (!lastLocation.current || !targetLocation.current) {
       // First fix
       lastLocation.current = rawLocation;
       targetLocation.current = rawLocation;
+      lastUpdateTime.current = now;
       onUpdate(rawLocation);
       return;
     }
 
-    // New target received
-    lastLocation.current = targetLocation.current; // Start from where we were supposed to be
+    // Calculate dynamic duration based on actual update rate
+    const delta = now - lastUpdateTime.current;
+    if (delta > 0) {
+      // Clamp between 500ms and 3000ms to handle temporary pauses/fast updates
+      currentDuration.current = Math.max(500, Math.min(3000, delta));
+    }
+    lastUpdateTime.current = now;
+
+    // We start from WHEREVER the animation currently interpolated to!
+    // But since we don't store intermediate state, we can just start from targetLocation 
+    // which the PREVIOUS animation reached (or almost reached).
+    lastLocation.current = targetLocation.current; 
     targetLocation.current = rawLocation;
-    startTime.current = performance.now();
+    startTime.current = now;
 
     const animate = (time: number) => {
       if (!lastLocation.current || !targetLocation.current) return;
       
-      const duration = 1000; // Expected GPS update interval
-      let progress = (time - startTime.current) / duration;
+      let progress = (time - startTime.current) / currentDuration.current;
       if (progress > 1) progress = 1;
 
-      // Linear easing for continuous movement, but we can use ease-out for smoother catchup
-      const easeProgress = progress < 0.5 
-        ? 2 * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      // Linear easing is mathematically required for constant vehicle velocity between ticks.
+      // Rubber-banding (ease-in-out) makes the vehicle look like it's braking and accelerating every 1s.
+      const easeProgress = progress;
 
       // Interpolate LngLat
       const lng = lastLocation.current.longitude + (targetLocation.current.longitude - lastLocation.current.longitude) * easeProgress;
