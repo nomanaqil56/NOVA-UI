@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Map as MapLibreMap, setWorkerUrl, Marker, LngLatBounds, GeoJSONSource } from 'maplibre-gl';
-
+import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Compass, LocateFixed, RefreshCw, AlertTriangle, Bug } from 'lucide-react';
 import type { GPSLocation, RouteOption } from '../../types/navigation';
 import { cn } from '../../lib/utils';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import { novaStyle } from '../../map/novaStyle';
 
 
 setWorkerUrl(workerUrl);
@@ -96,29 +97,7 @@ export const MapComponent = ({
     try {
       const map = new MapLibreMap({
         container: mapContainer.current,
-        style: {
-          version: 8,
-          sources: {
-            'carto-dark': {
-              type: 'raster',
-              tiles: [
-                'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-              ],
-              tileSize: 256
-            }
-          },
-          layers: [{
-            id: 'carto-dark-layer',
-            type: 'raster',
-            source: 'carto-dark',
-            paint: {
-              'raster-opacity': 1
-            }
-          }]
-        },
+        style: novaStyle as StyleSpecification,
         center: [77.2090, 28.6139],
         zoom: 13,
         pitch: 0,

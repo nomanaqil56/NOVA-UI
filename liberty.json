@@ -1,4 +1,4 @@
-export const novaStyle = {
+{
   "version": 8,
   "sources": {
     "ne2_shaded": {
@@ -21,7 +21,7 @@ export const novaStyle = {
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#080A0D"
+        "background-color": "#f8f4f0"
       }
     },
     {
@@ -52,9 +52,9 @@ export const novaStyle = {
       "source": "openmaptiles",
       "source-layer": "park",
       "paint": {
-        "fill-color": "#0b1016",
+        "fill-color": "#d8e8c8",
         "fill-opacity": 0.7,
-        "fill-outline-color": "#10141a"
+        "fill-outline-color": "rgba(95, 208, 100, 1)"
       }
     },
     {
@@ -63,7 +63,7 @@ export const novaStyle = {
       "source": "openmaptiles",
       "source-layer": "park",
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "rgba(228, 241, 215, 1)",
         "line-dasharray": [
           1,
           1.5
@@ -85,7 +85,19 @@ export const novaStyle = {
         "residential"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          "hsla(0,3%,85%,0.84)",
+          12,
+          "hsla(35,57%,88%,0.49)"
+        ]
       }
     },
     {
@@ -103,7 +115,7 @@ export const novaStyle = {
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#0b1016",
+        "fill-color": "hsla(98,61%,72%,0.7)",
         "fill-opacity": 0.4
       }
     },
@@ -122,7 +134,7 @@ export const novaStyle = {
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#0b1016",
+        "fill-color": "rgba(176, 213, 154, 1)",
         "fill-opacity": 0.3
       }
     },
@@ -141,7 +153,7 @@ export const novaStyle = {
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#0b1016",
+        "fill-color": "rgba(224, 236, 236, 1)",
         "fill-opacity": 0.8
       }
     },
@@ -163,8 +175,7 @@ export const novaStyle = {
         "fill-antialias": true,
         "fill-opacity": 0.8,
         "fill-pattern": "wetland_bg_11",
-        "fill-translate-anchor": "map",
-        "fill-color": "#0b1016"
+        "fill-translate-anchor": "map"
       }
     },
     {
@@ -181,7 +192,7 @@ export const novaStyle = {
         "pitch"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": "#DEE3CD"
       }
     },
     {
@@ -198,7 +209,7 @@ export const novaStyle = {
         "track"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": "#DEE3CD"
       }
     },
     {
@@ -215,7 +226,7 @@ export const novaStyle = {
         "cemetery"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": "hsl(75,37%,81%)"
       }
     },
     {
@@ -232,7 +243,7 @@ export const novaStyle = {
         "hospital"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": "#fde"
       }
     },
     {
@@ -249,7 +260,7 @@ export const novaStyle = {
         "school"
       ],
       "paint": {
-        "fill-color": "#0c0f14"
+        "fill-color": "rgb(236,238,204)"
       }
     },
     {
@@ -266,7 +277,7 @@ export const novaStyle = {
         "tunnel"
       ],
       "paint": {
-        "line-color": "#0f172a",
+        "line-color": "#a0c8f0",
         "line-dasharray": [
           3,
           3
@@ -329,7 +340,7 @@ export const novaStyle = {
         "line-cap": "round"
       },
       "paint": {
-        "line-color": "#0f172a",
+        "line-color": "#a0c8f0",
         "line-width": [
           "interpolate",
           [
@@ -374,7 +385,7 @@ export const novaStyle = {
         "line-cap": "round"
       },
       "paint": {
-        "line-color": "#0f172a",
+        "line-color": "#a0c8f0",
         "line-width": [
           "interpolate",
           [
@@ -405,7 +416,7 @@ export const novaStyle = {
         "tunnel"
       ],
       "paint": {
-        "fill-color": "#0f172a"
+        "fill-color": "rgb(158,189,255)"
       }
     },
     {
@@ -422,7 +433,7 @@ export const novaStyle = {
         "sand"
       ],
       "paint": {
-        "fill-color": "#0b1016"
+        "fill-color": "rgba(247, 239, 195, 1)"
       }
     },
     {
@@ -444,7 +455,7 @@ export const novaStyle = {
         false
       ],
       "paint": {
-        "fill-color": "#0c0f14",
+        "fill-color": "rgba(229, 228, 224, 1)",
         "fill-opacity": 0.7
       }
     },
@@ -478,7 +489,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#f0ede9",
         "line-width": [
           "interpolate",
           [
@@ -525,7 +536,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#f0ede9",
         "line-width": [
           "interpolate",
           [
@@ -578,7 +589,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-dasharray": [
           0.5,
           0.25
@@ -636,7 +647,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#cfcdca",
         "line-dasharray": [
           0.5,
           0.25
@@ -687,7 +698,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -741,7 +752,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#cfcdca",
         "line-opacity": [
           "interpolate",
           [
@@ -808,7 +819,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -858,7 +869,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -915,7 +926,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-dasharray": [
           0.5,
           0.25
@@ -982,7 +993,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(0,0%,100%)",
         "line-dasharray": [
           1,
           0.75
@@ -1039,7 +1050,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#fc8",
         "line-width": [
           "interpolate",
           [
@@ -1093,7 +1104,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -1140,7 +1151,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff4c6",
         "line-width": [
           "interpolate",
           [
@@ -1193,7 +1204,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -1245,7 +1256,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff4c6",
         "line-width": [
           "interpolate",
           [
@@ -1297,7 +1308,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff4c6",
         "line-width": [
           "interpolate",
           [
@@ -1352,7 +1363,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#ffdaa6",
         "line-width": [
           "interpolate",
           [
@@ -1400,7 +1411,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -1444,7 +1455,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -1496,7 +1507,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -1540,7 +1551,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -1581,8 +1592,7 @@ export const novaStyle = {
         false
       ],
       "paint": {
-        "fill-pattern": "pedestrian_polygon",
-        "fill-color": "#0c0f14"
+        "fill-pattern": "pedestrian_polygon"
       }
     },
     {
@@ -1628,7 +1638,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -1688,7 +1698,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#cfcdca",
         "line-width": [
           "interpolate",
           [
@@ -1758,7 +1768,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -1837,7 +1847,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#cfcdca",
         "line-opacity": [
           "interpolate",
           [
@@ -1918,7 +1928,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -1973,7 +1983,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -2037,7 +2047,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -2109,7 +2119,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "hsl(0,0%,100%)",
         "line-dasharray": [
           1,
           0.7
@@ -2173,7 +2183,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#fc8",
         "line-width": [
           "interpolate",
           [
@@ -2233,7 +2243,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -2303,7 +2313,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -2374,7 +2384,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -2432,7 +2442,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -2489,7 +2499,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -2551,7 +2561,19 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          5,
+          "hsl(26,87%,62%)",
+          6,
+          "#fc8"
+        ],
         "line-width": [
           "interpolate",
           [
@@ -2600,7 +2622,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -2649,7 +2671,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -2702,7 +2724,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -2751,7 +2773,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -2849,7 +2871,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -2903,7 +2925,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#cfcdca",
         "line-width": [
           "interpolate",
           [
@@ -2950,7 +2972,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -3004,7 +3026,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "hsl(36,6%,74%)",
         "line-opacity": [
           "interpolate",
           [
@@ -3080,7 +3102,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(35,6%,80%)",
         "line-dasharray": [
           1,
           0
@@ -3134,7 +3156,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -3184,7 +3206,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -3241,7 +3263,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#e9ac77",
         "line-width": [
           "interpolate",
           [
@@ -3304,7 +3326,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(0,0%,100%)",
         "line-dasharray": [
           1,
           0.3
@@ -3361,7 +3383,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#fc8",
         "line-width": [
           "interpolate",
           [
@@ -3415,7 +3437,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -3462,7 +3484,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -3515,7 +3537,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e293b",
+        "line-color": "#fff",
         "line-width": [
           "interpolate",
           [
@@ -3567,7 +3589,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -3619,7 +3641,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#fea",
         "line-width": [
           "interpolate",
           [
@@ -3674,7 +3696,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#1e3a5f",
+        "line-color": "#fc8",
         "line-width": [
           "interpolate",
           [
@@ -3718,7 +3740,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -3762,7 +3784,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -3810,7 +3832,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-width": [
           "interpolate",
           [
@@ -3854,7 +3876,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "#bbb",
         "line-dasharray": [
           0.2,
           8
@@ -3885,8 +3907,20 @@ export const novaStyle = {
       "minzoom": 13,
       "maxzoom": 14,
       "paint": {
-        "fill-color": "#151920",
-        "fill-outline-color": "#10141a"
+        "fill-color": "hsl(35,8%,85%)",
+        "fill-outline-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          "hsla(35,6%,79%,0.32)",
+          14,
+          "hsl(35,6%,79%)"
+        ]
       }
     },
     {
@@ -3900,7 +3934,7 @@ export const novaStyle = {
           "get",
           "render_min_height"
         ],
-        "fill-extrusion-color": "#151920",
+        "fill-extrusion-color": "hsl(35,8%,85%)",
         "fill-extrusion-height": [
           "get",
           "render_height"
@@ -3957,7 +3991,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(0,0%,70%)",
         "line-dasharray": [
           1,
           1
@@ -4022,7 +4056,7 @@ export const novaStyle = {
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(248,1%,41%)",
         "line-opacity": [
           "interpolate",
           [
@@ -4078,7 +4112,7 @@ export const novaStyle = {
         ]
       ],
       "paint": {
-        "line-color": "#141a22",
+        "line-color": "hsl(248,1%,41%)",
         "line-dasharray": [
           1,
           2
@@ -4159,9 +4193,9 @@ export const novaStyle = {
         "text-size": 14
       },
       "paint": {
-        "text-color": "#626a75",
-        "text-halo-color": "#080A0D",
-        "text-halo-width": 1
+        "text-color": "#74aee9",
+        "text-halo-color": "rgba(255,255,255,0.7)",
+        "text-halo-width": 1.5
       }
     },
     {
@@ -4232,9 +4266,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
-        "text-halo-color": "#080A0D",
-        "text-halo-width": 1
+        "text-color": "#495e91",
+        "text-halo-color": "rgba(255,255,255,0.7)",
+        "text-halo-width": 1.5
       }
     },
     {
@@ -4295,9 +4329,9 @@ export const novaStyle = {
         "text-size": 14
       },
       "paint": {
-        "text-color": "#626a75",
-        "text-halo-color": "#080A0D",
-        "text-halo-width": 1
+        "text-color": "#495e91",
+        "text-halo-color": "rgba(255,255,255,0.7)",
+        "text-halo-width": 1.5
       }
     },
     {
@@ -4391,9 +4425,9 @@ export const novaStyle = {
         "text-size": 12
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#ffffff",
         "text-halo-width": 1
       }
     },
@@ -4496,9 +4530,9 @@ export const novaStyle = {
         "text-size": 12
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#ffffff",
         "text-halo-width": 1
       }
     },
@@ -4601,9 +4635,9 @@ export const novaStyle = {
         "text-size": 12
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#ffffff",
         "text-halo-width": 1
       }
     },
@@ -4677,9 +4711,9 @@ export const novaStyle = {
         "text-size": 12
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#2e5a80",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#ffffff",
         "text-halo-width": 1
       }
     },
@@ -4748,9 +4782,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
-        "text-halo-color": "#080A0D",
-        "text-halo-width": 1
+        "text-color": "hsl(30,23%,62%)",
+        "text-halo-color": "#f8f4f0",
+        "text-halo-width": 0.5
       }
     },
     {
@@ -4839,7 +4873,7 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
         "text-halo-width": 1
       }
@@ -4916,7 +4950,7 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
         "text-halo-width": 1
       }
@@ -5222,9 +5256,9 @@ export const novaStyle = {
         "text-size": 12
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#666",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#ffffff",
         "text-halo-width": 1
       }
     },
@@ -5303,9 +5337,9 @@ export const novaStyle = {
         "text-transform": "uppercase"
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#333",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5387,9 +5421,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5471,9 +5505,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5544,9 +5578,9 @@ export const novaStyle = {
         "text-transform": "uppercase"
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#333",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5645,9 +5679,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5746,9 +5780,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5828,9 +5862,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5909,9 +5943,9 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     },
@@ -5990,11 +6024,11 @@ export const novaStyle = {
         ]
       },
       "paint": {
-        "text-color": "#626a75",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#080A0D",
+        "text-halo-color": "#fff",
         "text-halo-width": 1
       }
     }
   ]
-};
+}
