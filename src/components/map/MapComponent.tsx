@@ -96,7 +96,26 @@ export const MapComponent = ({
     try {
       const map = new MapLibreMap({
         container: mapContainer.current,
-        style: novaStyle as StyleSpecification,
+        style: {
+          version: 8,
+          sources: {
+            'carto-dark': {
+              type: 'raster',
+              tiles: [
+                'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+              ],
+              tileSize: 256
+            }
+          },
+          layers: [{
+            id: 'carto-dark-layer',
+            type: 'raster',
+            source: 'carto-dark'
+          }]
+        },
         center: [77.2090, 28.6139],
         zoom: 13,
         pitch: 0,
@@ -318,7 +337,8 @@ export const MapComponent = ({
   };
 
   return (
-    <div className="absolute inset-0 bg-[#080A0D]">
+    <div className="absolute inset-0 bg-transparent">
+      {/* 
       {(mapStatus === 'INITIALIZING' || mapStatus === 'LOADING') && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#080A0D]/90 backdrop-blur-sm text-primary transition-opacity duration-500">
           <RefreshCw className="w-8 h-8 text-accent animate-spin mb-4" />
@@ -326,6 +346,7 @@ export const MapComponent = ({
           <p className="text-primary-muted font-medium">Loading navigation data...</p>
         </div>
       )}
+      */}
 
       {mapStatus === 'ERROR' && (
         <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#080A0D]/90 backdrop-blur-sm text-primary">
@@ -358,7 +379,7 @@ export const MapComponent = ({
 
       <div ref={mapContainer} className="absolute inset-0" />
       
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#080A0D_100%)] opacity-60 z-10" />
+      {/* <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#080A0D_100%)] opacity-60 z-10" /> */}
 
       <div className="absolute bottom-8 right-8 flex flex-col gap-3 z-30">
         <button 
