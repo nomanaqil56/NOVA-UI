@@ -50,7 +50,7 @@ export const startGPS = (
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
         heading: position.coords.heading,
-        speed: position.coords.speed ? position.coords.speed * 3.6 : null, // m/s to km/h
+        speed: position.coords.speed !== null ? position.coords.speed * 3.6 : null, // m/s to km/h
         timestamp: position.timestamp
       });
     },

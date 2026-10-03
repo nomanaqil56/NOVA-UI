@@ -5,6 +5,15 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
 
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div className="w-full h-full bg-background p-8 flex flex-col items-center justify-center text-primary-muted">
+      <h1 className="text-2xl font-light tracking-widest mb-2">{title.toUpperCase()}</h1>
+      <p className="text-sm">Module coming soon</p>
+    </div>
+  );
+}
+
 function App() {
   const { role } = useRole();
 
@@ -24,16 +33,28 @@ function App() {
         
         <Route path="driver">
           <Route index element={<DriverDashboard />} />
+          <Route path="nav" element={<PlaceholderPage title="Navigation" />} />
+          <Route path="vehicle" element={<PlaceholderPage title="Vehicle" />} />
+          <Route path="trips" element={<PlaceholderPage title="Trips" />} />
+          <Route path="alerts" element={<PlaceholderPage title="Alerts" />} />
           <Route path="*" element={<Navigate to="/driver" replace />} />
         </Route>
         
         <Route path="admin">
           <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<PlaceholderPage title="Users" />} />
+          <Route path="system" element={<PlaceholderPage title="System" />} />
+          <Route path="software" element={<PlaceholderPage title="Software" />} />
+          <Route path="alerts" element={<PlaceholderPage title="Alerts" />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
         
         <Route path="tech">
           <Route index element={<TechnicianDashboard />} />
+          <Route path="diagnostics" element={<PlaceholderPage title="Diagnostics" />} />
+          <Route path="issues" element={<PlaceholderPage title="Issues" />} />
+          <Route path="tests" element={<PlaceholderPage title="Tests" />} />
+          <Route path="maintenance" element={<PlaceholderPage title="Maintenance" />} />
           <Route path="*" element={<Navigate to="/tech" replace />} />
         </Route>
       </Route>

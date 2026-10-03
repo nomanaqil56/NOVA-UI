@@ -1,9 +1,10 @@
 import { MapPin } from 'lucide-react';
-import type { RouteOption } from '../../types/navigation';
+import type { RouteOption, GPSLocation } from '../../types/navigation';
 import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 
 interface RoutePanelProps {
+  currentLocation?: GPSLocation | null;
   destination: { name: string } | null;
   routes: RouteOption[];
   activeRouteId: string | null;
@@ -13,15 +14,59 @@ interface RoutePanelProps {
   tripActive: boolean;
 }
 
-export const RoutePanel = ({ destination, routes, activeRouteId, onSelectRoute, onStartNavigation, onCancelTrip, tripActive }: RoutePanelProps) => {
+export const RoutePanel = ({ currentLocation, destination, routes, activeRouteId, onSelectRoute, onStartNavigation, onCancelTrip, tripActive }: RoutePanelProps) => {
   if (!destination || routes.length === 0) return null;
 
   const activeRoute = routes.find(r => r.id === activeRouteId) || routes[0];
   
+  let displayDistance = activeRoute.distance;
+  let displayDuration = activeRoute.duration;
+
+  if (tripActive && currentLocation) {
+    // Isolate ETA calculation so a future routing provider can replace it
+    const calculateRemaining = () => {
+       const coords = activeRoute.geometry.coordinates;
+       if (!coords || coords.length === 0) return { distance: displayDistance, duration: displayDuration };
+       
+       let closestIdx = 0;
+       let minDist = Infinity;
+       
+       const getDist = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+         const R = 6371e3;
+         const p1 = lat1 * Math.PI/180;
+         const p2 = lat2 * Math.PI/180;
+         const dp = (lat2-lat1) * Math.PI/180;
+         const dl = (lon2-lon1) * Math.PI/180;
+         const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+       };
+
+       for(let i=0; i<coords.length; i++) {
+          const d = getDist(currentLocation.latitude, currentLocation.longitude, coords[i][1], coords[i][0]);
+          if(d < minDist) { minDist = d; closestIdx = i; }
+       }
+       
+       let remainingDist = 0;
+       for(let i=closestIdx; i<coords.length-1; i++) {
+          remainingDist += getDist(coords[i][1], coords[i][0], coords[i+1][1], coords[i+1][0]);
+       }
+       
+       const avgSpeed = activeRoute.distance > 0 ? (activeRoute.distance / activeRoute.duration) : 1;
+       return { 
+          distance: remainingDist, 
+          duration: remainingDist / avgSpeed 
+       };
+    };
+
+    const remaining = calculateRemaining();
+    displayDistance = remaining.distance;
+    displayDuration = remaining.duration;
+  }
+
   // Convert meters to km
-  const distKm = (activeRoute.distance / 1000).toFixed(1);
+  const distKm = (displayDistance / 1000).toFixed(1);
   // Convert seconds to min
-  const durationMin = Math.round(activeRoute.duration / 60);
+  const durationMin = Math.max(1, Math.round(displayDuration / 60));
 
   // ETA Calculation
   const now = new Date();

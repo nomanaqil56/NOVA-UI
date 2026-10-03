@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Terminal, ShieldAlert, CheckSquare, Wrench } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -9,14 +9,26 @@ export const TechnicianDashboard = () => {
   ]);
   const [cmd, setCmd] = useState('');
 
+  const pendingTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      pendingTimeouts.current.forEach(t => clearTimeout(t));
+    };
+  }, []);
+
   const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && cmd.trim()) {
       setConsoleOutput(prev => [...prev, { text: `> ${cmd}`, type: 'cmd' }]);
       
       const response = executeMockCommand(cmd);
-      setTimeout(() => {
-        setConsoleOutput(prev => [...prev, ...response]);
-      }, 400);
+      if (response.length > 0) {
+        const t = setTimeout(() => {
+          setConsoleOutput(prev => [...prev, ...response]);
+          pendingTimeouts.current = pendingTimeouts.current.filter(id => id !== t);
+        }, 400);
+        pendingTimeouts.current.push(t);
+      }
       
       setCmd('');
     }
@@ -29,6 +41,8 @@ export const TechnicianDashboard = () => {
     if (c === 'lidar.scan') return [{ text: 'FRONT_LIDAR: NORMAL, RANGE: 150M', type: 'success' }];
     if (c === 'camera.verify') return [{ text: '8/8 CAMERAS ONLINE, CALIBRATION OK', type: 'success' }];
     if (c === 'clear') {
+      pendingTimeouts.current.forEach(t => clearTimeout(t));
+      pendingTimeouts.current = [];
       setConsoleOutput([]);
       return [];
     }

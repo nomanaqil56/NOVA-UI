@@ -22,6 +22,20 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c;
 };
 
+const getDistanceToSegment = (lat: number, lon: number, lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
+  const y = lat2 - lat1;
+  const d2 = x * x + y * y;
+  const x0 = (lon - lon1) * Math.cos((lat1 + lat) / 2 * Math.PI / 180);
+  const y0 = lat - lat1;
+  if (d2 === 0) return getDistance(lat, lon, lat1, lon1);
+  let t = (x0 * x + y0 * y) / d2;
+  t = Math.max(0, Math.min(1, t));
+  const projLon = lon1 + t * (lon2 - lon1);
+  const projLat = lat1 + t * (lat2 - lat1);
+  return getDistance(lat, lon, projLat, projLon);
+};
+
 export const DriverDashboard = () => {
   // Navigation State
   const [gpsState, setGpsState] = useState<GPSState>('DISCONNECTED');
@@ -41,21 +55,40 @@ export const DriverDashboard = () => {
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleOverrideDown = () => {
+    if (overrideActive) return;
+    if (holdTimer.current) clearInterval(holdTimer.current);
     let time = 0;
     holdTimer.current = setInterval(() => {
       time += 100;
       setOverrideHoldTime(time);
       if (time >= 2000) {
         setOverrideActive(true);
-        if (holdTimer.current) clearInterval(holdTimer.current);
+        if (holdTimer.current) {
+          clearInterval(holdTimer.current);
+          holdTimer.current = null;
+        }
       }
     }, 100);
   };
 
   const handleOverrideUp = () => {
-    if (holdTimer.current) clearInterval(holdTimer.current);
-    if (!overrideActive) setOverrideHoldTime(0);
+    if (holdTimer.current) {
+      clearInterval(holdTimer.current);
+      holdTimer.current = null;
+    }
+    if (overrideActive) {
+      setOverrideActive(false);
+      setOverrideHoldTime(0);
+    } else {
+      setOverrideHoldTime(0);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (holdTimer.current) clearInterval(holdTimer.current);
+    };
+  }, []);
 
   const handleEnableGPS = () => {
     startGPS(isDemoMode, setCurrentLocation, setGpsState);
@@ -92,6 +125,7 @@ export const DriverDashboard = () => {
     if (!destination || !currentLocation) return;
     
     const calculateRoute = async () => {
+      if (isRecalculating) return;
       const currentId = ++routeRequestId.current;
       setIsRecalculating(true);
       try {
@@ -121,9 +155,17 @@ export const DriverDashboard = () => {
       const active = routes.find(r => r.id === activeRouteId);
       if (active && !isRecalculating && tripActive) {
         let minDistance = Infinity;
-        for (const coord of active.geometry.coordinates) {
-          const dist = getDistance(currentLocation.latitude, currentLocation.longitude, coord[1], coord[0]);
+        const coords = active.geometry.coordinates;
+        for (let i = 0; i < coords.length - 1; i++) {
+          const dist = getDistanceToSegment(
+            currentLocation.latitude, currentLocation.longitude,
+            coords[i][1], coords[i][0],
+            coords[i+1][1], coords[i+1][0]
+          );
           if (dist < minDistance) minDistance = dist;
+        }
+        if (coords.length === 1) {
+          minDistance = getDistance(currentLocation.latitude, currentLocation.longitude, coords[0][1], coords[0][0]);
         }
 
         const accuracy = currentLocation.accuracy || 10;
@@ -175,6 +217,7 @@ export const DriverDashboard = () => {
         
         {destination && (
           <RoutePanel 
+            currentLocation={currentLocation}
             destination={destination}
             routes={routes}
             activeRouteId={activeRouteId}
@@ -182,11 +225,13 @@ export const DriverDashboard = () => {
             onStartNavigation={() => setTripActive(true)}
             tripActive={tripActive}
             onCancelTrip={() => {
+              routeRequestId.current += 1; // Invalidate active request
               setTripActive(false);
               setDestination(null);
               setRoutes([]);
               setActiveRouteId(null);
               offRouteCount.current = 0;
+              setIsRecalculating(false);
             }}
           />
         )}
@@ -232,7 +277,11 @@ export const DriverDashboard = () => {
             <div className="text-right flex flex-col items-end">
               <div className="text-[10px] text-primary-muted mb-2 font-semibold uppercase tracking-wider">Mode</div>
               <button 
-                onClick={() => setIsDemoMode(!isDemoMode)}
+                onClick={() => {
+                  setIsDemoMode(!isDemoMode);
+                  setCurrentLocation(null);
+                  setGpsState('DISCONNECTED');
+                }}
                 className={cn(
                   "text-xs font-bold px-3 py-1 rounded-full border transition-colors",
                   isDemoMode ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-surface-elevated text-primary-muted border-border hover:text-primary"

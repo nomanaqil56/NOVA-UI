@@ -21,6 +21,11 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
   const debouncedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchRequestId = useRef(0);
+  const currentLocationRef = useRef(currentLocation);
+
+  useEffect(() => {
+    currentLocationRef.current = currentLocation;
+  }, [currentLocation]);
 
   useEffect(() => {
     // Handle click outside
@@ -47,7 +52,7 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
       setIsSearching(true);
       setError(false);
       try {
-        const res = await searchDestination(query, currentLocation);
+        const res = await searchDestination(query, currentLocationRef.current);
         if (searchRequestId.current !== currentId) return; // Ignore stale result
         
         setResults(res);
@@ -65,7 +70,7 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
     return () => {
       if (debouncedTimeout.current) clearTimeout(debouncedTimeout.current);
     };
-  }, [query, currentLocation]);
+  }, [query]);
 
   const handleSelect = (r: GeocodingResult) => {
     setQuery(r.name);

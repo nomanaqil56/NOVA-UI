@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Map as MapLibreMap, setWorkerUrl, Marker, LngLatBounds, GeoJSONSource } from 'maplibre-gl';
+import { Map as MapLibreMap, setWorkerUrl, Marker, LngLatBounds, GeoJSONSource, AttributionControl } from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Compass, LocateFixed, RefreshCw, AlertTriangle, Bug } from 'lucide-react';
@@ -78,7 +78,7 @@ export const MapComponent = ({
   const destinationMarkerRef = useRef<Marker | null>(null);
   
   const cameraMode = useRef<CameraMode>('INITIALIZING');
-  const recenterTime = useRef<number>(0);
+  const cameraTransitionUntil = useRef<number>(0);
   const prevTripActive = useRef(tripActive);
   const latestLocation = useRef(currentLocation);
   latestLocation.current = currentLocation;
@@ -119,6 +119,7 @@ export const MapComponent = ({
         pitch: 0,
         attributionControl: false,
       });
+      map.addControl(new AttributionControl({ compact: true }), 'bottom-left');
 
       mapRef.current = map;
 
@@ -153,6 +154,10 @@ export const MapComponent = ({
       });
 
       map.on('load', () => {
+        // Will set READY when idle
+      });
+      
+      map.on('idle', () => {
         setMapStatus('READY');
       });
 
@@ -236,21 +241,41 @@ export const MapComponent = ({
   useEffect(() => {
     if (mapStatus === 'READY' && currentLocation && cameraMode.current === 'INITIALIZING' && mapRef.current) {
       cameraMode.current = 'GPS_ACQUIRE';
-      recenterTime.current = performance.now() + 4000; // block updateVisuals during initial ease
+      cameraTransitionUntil.current = performance.now() + 4000;
       
-      mapRef.current.easeTo({
+      mapRef.current.flyTo({
         center: [currentLocation.longitude, currentLocation.latitude],
-        zoom: 15.5,
+        zoom: 10,
         pitch: 0,
         bearing: 0,
-        duration: 4000,
+        duration: 2000,
         essential: true, // Respects reduced-motion
       });
 
       mapRef.current.once('moveend', () => {
-        if (cameraMode.current === 'GPS_ACQUIRE') {
-          cameraMode.current = 'NORMAL';
-          setIsFollowing(true);
+        if (!mapRef.current) return;
+        
+        const triggerFinalZoom = () => {
+          if (cameraMode.current === 'GPS_ACQUIRE' && mapRef.current) {
+            mapRef.current.flyTo({
+              center: [currentLocation.longitude, currentLocation.latitude],
+              zoom: 15.5,
+              duration: 2000,
+              essential: true,
+            });
+            mapRef.current.once('moveend', () => {
+              if (cameraMode.current === 'GPS_ACQUIRE') {
+                cameraMode.current = 'NORMAL';
+                setIsFollowing(true);
+              }
+            });
+          }
+        };
+
+        if (mapRef.current.areTilesLoaded()) {
+          triggerFinalZoom();
+        } else {
+          mapRef.current.once('idle', triggerFinalZoom);
         }
       });
     }
@@ -308,8 +333,8 @@ export const MapComponent = ({
     }
 
     if (cameraMode.current === 'NORMAL' || cameraMode.current === 'NAVIGATION') {
-      // Allow easeTo animations to finish
-      if (performance.now() - recenterTime.current < 1500) return;
+      // Allow animations to finish
+      if (performance.now() < cameraTransitionUntil.current) return;
       
       // Using direct setters because we are inside a requestAnimationFrame loop
       map.setCenter([longitude, latitude]);
@@ -339,16 +364,17 @@ export const MapComponent = ({
         el.innerHTML = `
           <div class="w-4 h-4 bg-white rounded-full mx-auto shadow-[0_0_15px_white]"></div>
           <div class="w-0.5 h-8 bg-white/50 mx-auto"></div>
-          <div class="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-center text-white font-medium text-sm" style="text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);">
-            ${destination.name}
+          <div class="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-center text-white font-medium text-sm destination-name-label" style="text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);">
           </div>
         `;
         destinationMarkerRef.current = new Marker({ element: el, anchor: 'bottom' })
           .setLngLat([destination.lon, destination.lat])
           .addTo(map);
+        const nameEl = el.querySelector('.destination-name-label');
+        if (nameEl) nameEl.textContent = destination.name;
       } else {
         destinationMarkerRef.current.setLngLat([destination.lon, destination.lat]);
-        const nameEl = destinationMarkerRef.current.getElement().querySelector('.whitespace-nowrap');
+        const nameEl = destinationMarkerRef.current.getElement().querySelector('.destination-name-label');
         if (nameEl) nameEl.textContent = destination.name;
       }
     } else {
@@ -367,7 +393,7 @@ export const MapComponent = ({
       const loc = latestLocation.current;
       if (!mapRef.current || !loc || cameraMode.current === 'INITIALIZING' || cameraMode.current === 'GPS_ACQUIRE') return;
 
-      recenterTime.current = performance.now();
+      cameraTransitionUntil.current = performance.now() + 1500;
       
       if (tripActive) {
         cameraMode.current = 'NAVIGATION';
@@ -399,7 +425,7 @@ export const MapComponent = ({
     const loc = latestLocation.current;
     if (!mapRef.current || !loc) return;
     
-    recenterTime.current = performance.now();
+    cameraTransitionUntil.current = performance.now() + 1500;
     cameraMode.current = tripActive ? 'NAVIGATION' : 'NORMAL';
     setIsFollowing(true);
     
