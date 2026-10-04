@@ -35,7 +35,14 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         console.log('[3D] CONSTRUCTOR');
         this.setupLighting();
-        this.createProceduralFallback();
+        
+        // Add Temporary Debug Box (Task 5)
+        const debugGeo = new THREE.BoxGeometry(2, 5, 2); // 2m wide, 5m long, 2m high
+        const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: false, depthTest: false }); // Highly visible
+        const debugMesh = new THREE.Mesh(debugGeo, debugMat);
+        debugMesh.position.set(0, 0, 1); // Sit exactly on map surface (Z center = 1)
+        this.modelGroup.add(debugMesh);
+        
         this.loadGLBModel();
         
         console.log('[3D] MODEL CHILDREN', this.modelGroup.children.length);
@@ -75,53 +82,69 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
     private loadGLBModel() {
         const loader = new GLTFLoader();
-        console.log('[NOVA 3D] Loading nova-car.glb');
-        loader.load('/models/nova-car.glb', (gltf: any) => {
-            console.log('[NOVA 3D] GLB loaded');
-            if (!gltf || !gltf.scene) return;
+        console.log('[NOVA 3D] GLB REQUEST');
+        loader.load('/models/Koenigsegg.glb', (gltf: any) => {
+            console.log('[NOVA 3D] GLB LOADED');
+            if (!gltf || !gltf.scene) {
+                console.error('[NOVA 3D] GLB LOAD FAILED — PROCEDURAL FALLBACK ACTIVE');
+                this.createProceduralFallback();
+                return;
+            }
+            
             this.glbModel = gltf.scene as THREE.Group;
             if (!this.glbModel) return;
+
+            // Log mesh count
+            let meshCount = 0;
+            this.glbModel.traverse((child) => { if ((child as THREE.Mesh).isMesh) meshCount++; });
+            console.log('[NOVA 3D] MESH COUNT', meshCount);
 
             const box = new THREE.Box3().setFromObject(this.glbModel);
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
             
-            console.log('[NOVA 3D] Model dimensions:', { x: size.x, y: size.y, z: size.z });
-            console.log('[NOVA 3D] Model center:', { x: center.x, y: center.y, z: center.z });
+            console.log('[NOVA 3D] BOUNDS', { min: box.min, max: box.max });
+            console.log('[NOVA 3D] DIMENSIONS', { x: size.x, y: size.y, z: size.z });
+            console.log('[NOVA 3D] CENTER', { x: center.x, y: center.y, z: center.z });
 
-            // Create a wrapper to orient and scale the model correctly
-            const wrapper = new THREE.Group();
+            // Determine length
+            let length = size.z;
+            if (size.x > size.y && size.x > size.z) { length = size.x; }
+            if (size.y > size.x && size.y > size.z) { length = size.y; }
+
+            // Normalize vehicle to ~4.8m long
+            const scale = length > 0 ? 4.8 / length : 1;
+            console.log('[NOVA 3D] SCALE', scale);
+
+            // Clean hierarchy
+            const vehicleRoot = new THREE.Group();
+            const orientationWrapper = new THREE.Group();
             
-            // Center the model's geometry at origin on X and Z, but place bottom at Y=0
+            // Put center on local X/Y = 0, and bottom exactly at local Z = 0 (before orientation)
             this.glbModel.position.set(-center.x, -box.min.y, -center.z);
-            wrapper.add(this.glbModel);
+            orientationWrapper.add(this.glbModel);
 
-            // By default GLTF is Y-up. MapLibre is Z-up.
-            // We rotate around X to put Y up into Z up.
-            wrapper.rotation.x = Math.PI / 2;
+            // Apply Y-up to Z-up orientation correction
+            orientationWrapper.rotation.x = Math.PI / 2;
+            console.log('[NOVA 3D] ORIENTATION', 'Applied Math.PI/2 on X-axis to convert Y-up to Z-up based on GLB bounds inspection');
 
-            // Wait until we inspect the dimensions to apply proper scale.
-            // For now, assume it's roughly 1 unit = 1 meter and leave scale at 1, or apply a generic scale.
-            // Actually, let's just make it visible:
-            const maxDim = Math.max(size.x, size.y, size.z);
-            // If it's huge, scale it down to ~4.8m length
-            const scale = maxDim > 0 ? 4.8 / maxDim : 1;
-            wrapper.scale.set(scale, scale, scale);
-
-            // Lift to road level based on bounding box minimum Z (which becomes -Y before rotation, etc.)
-            // We'll fine-tune this after inspecting the logs.
+            vehicleRoot.scale.set(scale, scale, scale);
+            vehicleRoot.add(orientationWrapper);
 
             if (this.proceduralModel) {
                 this.modelGroup.remove(this.proceduralModel);
+                this.proceduralModel = null;
             }
-            this.modelGroup.add(wrapper);
-            // this.glbWrapper = wrapper;
+            
+            this.modelGroup.add(vehicleRoot);
             this.status = 'GLB';
-            console.log('[NOVA 3D] Model ready');
+            console.log('[NOVA 3D] VEHICLE READY', 'GLB VEHICLE ACTIVE');
             
             if (this.map) this.map.triggerRepaint();
         }, undefined, (err) => {
             console.error('[NOVA 3D] Failed to load GLB model', err);
+            console.error('[NOVA 3D] GLB LOAD FAILED — PROCEDURAL FALLBACK ACTIVE');
+            this.createProceduralFallback();
         });
     }
 
