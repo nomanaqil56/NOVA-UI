@@ -163,44 +163,60 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   }, [activeRoute, mapStatus]);
 
   // Handle Camera Mode Transitions (Only modifying existing map)
+  const lastHandledCameraMode = useRef<string | null>(null);
+
   useEffect(() => {
     if (mapStatus !== 'READY' || !mapRef.current) return;
     const map = mapRef.current;
     
+    if (lastHandledCameraMode.current === cameraMode) {
+        // Allow re-triggering OVERVIEW for 3D toggle, or ROUTE_PREVIEW for activeRoute changes
+        if (cameraMode !== 'OVERVIEW' && cameraMode !== 'ROUTE_PREVIEW') {
+            return;
+        }
+    }
+    
+    const loc = currentLocationRef.current;
+    
     if (cameraMode === 'ROUTE_PREVIEW' && activeRoute) {
+        lastHandledCameraMode.current = cameraMode;
         cameraTransitionUntil.current = performance.now() + 1500;
         const bounds = new LngLatBounds();
         activeRoute.geometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
         map.fitBounds(bounds, { padding: { top: 150, bottom: 250, left: 450, right: 100 }, duration: 1500 });
-    } else if (cameraMode === 'NAVIGATION' && currentLocation) {
+    } else if (cameraMode === 'NAVIGATION' && loc) {
+        lastHandledCameraMode.current = cameraMode;
         cameraTransitionUntil.current = performance.now() + 1500;
         map.easeTo({
-          center: [currentLocation.longitude, currentLocation.latitude],
+          center: [loc.longitude, loc.latitude],
           pitch: 60,
-          bearing: currentLocation.heading || map.getBearing(),
+          bearing: loc.heading || map.getBearing(),
           padding: { bottom: 250, top: 0, left: 0, right: 0 },
           zoom: 16.5,
           duration: 1500
         });
-    } else if (cameraMode === 'OVERVIEW' && currentLocation) {
+    } else if (cameraMode === 'OVERVIEW' && loc) {
+        lastHandledCameraMode.current = cameraMode;
         cameraTransitionUntil.current = performance.now() + 1500;
         map.easeTo({
-          center: [currentLocation.longitude, currentLocation.latitude],
+          center: [loc.longitude, loc.latitude],
           pitch: is3D ? 60 : 0,
           bearing: 0,
           padding: { bottom: 0, top: 0, left: 0, right: 0 },
           zoom: 15.5,
           duration: 1500
         });
-    } else if (cameraMode === 'GPS_ACQUIRE' && currentLocation) {
+    } else if (cameraMode === 'GPS_ACQUIRE' && loc) {
+      if (lastHandledCameraMode.current === 'GPS_ACQUIRE') return; // Prevent repeated triggers
+      lastHandledCameraMode.current = cameraMode;
       cameraTransitionUntil.current = performance.now() + 4000;
-      map.flyTo({ center: [currentLocation.longitude, currentLocation.latitude], zoom: 10, pitch: 0, bearing: 0, duration: 2000, essential: true });
+      map.flyTo({ center: [loc.longitude, loc.latitude], zoom: 10, pitch: 0, bearing: 0, duration: 2000, essential: true });
       map.once('moveend', () => {
         if (!mapRef.current) return;
         const triggerFinalZoom = () => {
           if (cameraModeRef.current === 'GPS_ACQUIRE' && mapRef.current && currentLocationRef.current) {
-            const loc = currentLocationRef.current;
-            mapRef.current.flyTo({ center: [loc.longitude, loc.latitude], zoom: 16.5, duration: 2000, essential: true });
+            const finalLoc = currentLocationRef.current;
+            mapRef.current.flyTo({ center: [finalLoc.longitude, finalLoc.latitude], zoom: 16.5, duration: 2000, essential: true });
             mapRef.current.once('moveend', () => {
               if (cameraModeRef.current === 'GPS_ACQUIRE') {
                 setCameraMode('OVERVIEW');

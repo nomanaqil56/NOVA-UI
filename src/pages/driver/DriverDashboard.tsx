@@ -20,6 +20,7 @@ export const DriverDashboard = () => {
   } = useNavigation();
 
   const [pickedLocation, setPickedLocation] = useState<{lat: number, lon: number, name?: string, loading: boolean, result?: any} | null>(null);
+  const clickRequestId = useRef(0);
   
   // Vehicle Simulation State
   const [overrideState, setOverrideState] = useState<'AUTONOMOUS' | 'TAKING_CONTROL' | 'MANUAL'>('AUTONOMOUS');
@@ -63,12 +64,15 @@ export const DriverDashboard = () => {
   const handleMapClick = async (lat: number, lon: number, featureName?: string) => {
     if (navState === 'NAVIGATING' || navState === 'RECALCULATING') return;
     
+    const currentId = ++clickRequestId.current;
     setPickedLocation({ lat, lon, name: featureName, loading: true });
     
     try {
       const result = await reverseGeocode(lat, lon);
+      if (clickRequestId.current !== currentId) return;
       setPickedLocation({ lat, lon, name: result.name, loading: false, result });
     } catch {
+      if (clickRequestId.current !== currentId) return;
       setPickedLocation({ lat, lon, name: 'Selected Location', loading: false, result: {
         placeId: `${lat},${lon}`,
         name: 'Selected Location',

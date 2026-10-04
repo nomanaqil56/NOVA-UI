@@ -84,8 +84,17 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
   const routeRequestId = useRef(0);
   const offRouteCount = useRef(0);
   const lastValidLocation = useRef<GPSLocation | null>(null);
+  const gpsSessionRef = useRef(0);
+  
+  // Use a ref for the active route so demo GPS can access it without restarting the GPS watcher
+  const activeRouteRef = useRef<RouteOption | null>(null);
+  useEffect(() => {
+    activeRouteRef.current = routes.find(r => r.id === activeRouteIdState) || null;
+  }, [routes, activeRouteIdState]);
 
-  const handleLocationUpdate = useCallback((loc: GPSLocation) => {
+  const handleLocationUpdate = useCallback((loc: GPSLocation, sessionId: number) => {
+    if (sessionId !== gpsSessionRef.current) return;
+    
     if (lastValidLocation.current) {
         const dist = getDistance(lastValidLocation.current.latitude, lastValidLocation.current.longitude, loc.latitude, loc.longitude);
         const timeDiff = (loc.timestamp - lastValidLocation.current.timestamp) / 1000;
@@ -101,7 +110,14 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
   useEffect(() => {
     lastValidLocation.current = null;
     setCurrentLocation(null);
-    startGPS(isDemoMode, handleLocationUpdate, setGpsState);
+    const sessionId = ++gpsSessionRef.current;
+    
+    startGPS(
+      isDemoMode, 
+      (loc) => handleLocationUpdate(loc, sessionId), 
+      setGpsState,
+      () => activeRouteRef.current
+    );
     return () => { stopGPS(); };
   }, [isDemoMode, handleLocationUpdate]);
 
@@ -209,8 +225,9 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     const threshold = Math.max(40, (currentLocation.accuracy || 10) + 20);
     if (minDistance > threshold) {
       offRouteCount.current++;
-      if (offRouteCount.current >= 3 && destination) {
+      if (offRouteCount.current >= 5 && destination) { // Wait for 5 samples
         calculateRoute(destination, currentLocation);
+        offRouteCount.current = 0; // Cooldown immediately to avoid rapid requests
       }
     } else {
       offRouteCount.current = 0;
@@ -231,15 +248,20 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     }
 
     const avgSpeed = activeRoute.distance > 0 ? (activeRoute.distance / activeRoute.duration) : 1;
-    const remainingDur = remainingDist / avgSpeed;
+    let remainingDur = remainingDist / avgSpeed;
+    
+    remainingDist = Math.max(0, remainingDist);
+    let progressPercentage = 100 - ((remainingDist / activeRoute.distance) * 100);
+    progressPercentage = Math.max(0, Math.min(100, progressPercentage));
     
     if (remainingDist < 30) {
+       // arrival threshold
        finishTrip();
     } else {
       setRouteProgress({
         distanceRemaining: remainingDist,
         durationRemaining: remainingDur,
-        progressPercentage: 100 - ((remainingDist / activeRoute.distance) * 100),
+        progressPercentage: progressPercentage,
         currentSegmentIndex: closestIdx,
         distanceToNextManeuver: 0
       });

@@ -210,27 +210,27 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         // Fetch MapLibre's projection matrix securely without using `any` hacks
         let m = new THREE.Matrix4();
-        if (input && typeof (input as any).defaultProjectionData !== 'undefined') {
+        if (input && (input as any).defaultProjectionData) {
             m.fromArray((input as any).defaultProjectionData.mainMatrix);
         } else if (input instanceof Float32Array || Array.isArray(input)) {
             m.fromArray(input as any);
-        } else if (input && typeof (input as any).projMatrix !== 'undefined') {
+        } else if (input && (input as any).projMatrix) {
             m.fromArray((input as any).projMatrix);
         }
 
         // Mercator meters to WebGL scale
         const scale = mercator.meterInMercatorCoordinateUnits();
 
-        const scaleMatrix = new THREE.Matrix4().makeScale(scale, scale, scale);
-        // MapLibre rotates clockwise for bearing. Heading 0 = North (Y).
-        // Rotate our Y-forward model by -heading around Z to align correctly.
-        const rotationMatrix = new THREE.Matrix4().makeRotationZ(-this.visualHeading * Math.PI / 180);
-        const translationMatrix = new THREE.Matrix4().makeTranslation(mercator.x, mercator.y, mercator.z);
-        
+        // Standard MapLibre CustomLayer projection translation & scale:
         const transformMatrix = new THREE.Matrix4()
-            .multiply(translationMatrix)
-            .multiply(rotationMatrix)
-            .multiply(scaleMatrix);
+            .makeTranslation(mercator.x, mercator.y, mercator.z)
+            .scale(new THREE.Vector3(scale, -scale, scale)); // MapLibre Y is inverted relative to ThreeJS
+
+        // MapLibre rotates clockwise for bearing. Heading 0 = North (Y).
+        // Since we inverted Y, a positive rotation around Z rotates counter-clockwise in MapLibre space (which is correct for heading)
+        const rotationZ = new THREE.Matrix4().makeRotationZ(-this.visualHeading * Math.PI / 180);
+        
+        transformMatrix.multiply(rotationZ);
 
         this.camera.projectionMatrix = m.multiply(transformMatrix);
         
