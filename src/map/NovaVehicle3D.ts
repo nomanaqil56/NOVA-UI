@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as maplibregl from 'maplibre-gl';
 import type { CustomLayerInterface, CustomRenderMethodInput } from 'maplibre-gl';
 
@@ -14,7 +14,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private renderer: THREE.WebGLRenderer | null = null;
     
     private modelGroup: THREE.Group;
-    private glbModel: THREE.Group | null = null;
+    // private glbModel: THREE.Group | null = null;
     private proceduralModel: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
     
@@ -32,9 +32,12 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.modelGroup = new THREE.Group();
         this.scene.add(this.modelGroup);
 
+        console.log('[3D] CONSTRUCTOR');
         this.setupLighting();
         this.createProceduralFallback();
-        this.loadGLBModel();
+        // this.loadGLBModel(); // Disabled for debugging
+        
+        console.log('[3D] MODEL CHILDREN', this.modelGroup.children.length);
     }
 
     private setupLighting() {
@@ -57,10 +60,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private createProceduralFallback() {
         const procModel = new THREE.Group();
 
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111316, roughness: 0.3, metalness: 0.8 });
-        const glassMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.9 });
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.8 }); // Bright white
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x00008b, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.9 }); // Dark blue
         const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 });
-        const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
+        const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff }); // Bright cyan
         const redMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
         // MapLibre Z is Up. Y is North. X is East.
@@ -106,18 +109,26 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         sensor.position.set(0, 0.5, 1.35);
         procModel.add(sensor);
         
-        // Soft contact shadow
-        const shadowGeo = new THREE.PlaneGeometry(2.4, 5.2);
-        const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false });
-        const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-        shadow.position.set(0, 0, 0.01);
-        procModel.add(shadow);
+        // Soft contact shadow (TEMPORARILY REMOVED)
+        // const shadowGeo = new THREE.PlaneGeometry(2.4, 5.2);
+        // const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false });
+        // const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+        // shadow.position.set(0, 0, 0.01);
+        // procModel.add(shadow);
+        
+        // DEBUG SPHERE
+        const debugGeometry = new THREE.SphereGeometry(1.0, 16, 16);
+        const debugMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const debugSphere = new THREE.Mesh(debugGeometry, debugMaterial);
+        debugSphere.position.set(0, 0, 2);
+        procModel.add(debugSphere);
 
         this.proceduralModel = procModel;
         this.modelGroup.add(this.proceduralModel);
         this.status = 'PROCEDURAL_FALLBACK';
     }
 
+    /*
     private loadGLBModel() {
         const loader = new GLTFLoader();
         loader.load('/models/nova-car.glb', (gltf: any) => {
@@ -157,8 +168,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             console.warn('[NOVA 3D] Failed to load GLB model, using procedural fallback.');
         });
     }
+    */
 
     public updatePosition(lng: number, lat: number) {
+        console.log('[3D] POSITION', lng, lat);
         this.currentLocation = { lng, lat };
         if (this.map) this.map.triggerRepaint();
     }
@@ -185,6 +198,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     public onAdd(map: maplibregl.Map, gl: WebGLRenderingContext) {
+        console.log('[3D] ON_ADD');
         this.map = map;
         this.renderer = new THREE.WebGLRenderer({
             canvas: map.getCanvas(),
@@ -196,6 +210,12 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
+        
+        console.log('[3D] RENDER', {
+            location: this.currentLocation,
+            renderer: !!this.renderer,
+            map: !!this.map
+        });
 
         // Smooth visual heading towards current target
         const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);
@@ -207,38 +227,59 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             this.currentLocation, 
             this.currentAltitude
         );
-
-        // Fetch MapLibre's projection matrix securely without using `any` hacks
-        let m = new THREE.Matrix4();
-        if (input && (input as any).defaultProjectionData) {
-            m.fromArray((input as any).defaultProjectionData.mainMatrix);
-        } else if (input instanceof Float32Array || Array.isArray(input)) {
-            m.fromArray(input as any);
-        } else if (input && (input as any).projMatrix) {
-            m.fromArray((input as any).projMatrix);
+        
+        if (!Number.isFinite(mercator.x) || !Number.isFinite(mercator.y) || !Number.isFinite(mercator.z)) {
+            console.error('[3D] INVALID MERCATOR POSITION');
+            return;
         }
 
-        // Mercator meters to WebGL scale
+        console.log('[3D] VEHICLE MERCATOR', {
+            x: mercator.x,
+            y: mercator.y,
+            z: mercator.z,
+            scale: mercator.meterInMercatorCoordinateUnits(),
+            mapCenter: this.map.getCenter(),
+            mapZoom: this.map.getZoom()
+        });
+
+        const matrix = input.defaultProjectionData.mainMatrix;
+        if (!matrix || matrix.length !== 16) {
+            console.error('[3D] INVALID MAPLIBRE MATRIX');
+            return;
+        }
+        console.log('[3D] MATRIX OK');
+
         const scale = mercator.meterInMercatorCoordinateUnits();
-
-        // Standard MapLibre CustomLayer projection translation & scale:
-        const transformMatrix = new THREE.Matrix4()
-            .makeTranslation(mercator.x, mercator.y, mercator.z)
-            .scale(new THREE.Vector3(scale, -scale, scale)); // MapLibre Y is inverted relative to ThreeJS
-
-        // MapLibre rotates clockwise for bearing. Heading 0 = North (Y).
-        // Since we inverted Y, a positive rotation around Z rotates counter-clockwise in MapLibre space (which is correct for heading)
-        const rotationZ = new THREE.Matrix4().makeRotationZ(-this.visualHeading * Math.PI / 180);
         
-        transformMatrix.multiply(rotationZ);
-
-        this.camera.projectionMatrix = m.multiply(transformMatrix);
+        const translation = new THREE.Matrix4().makeTranslation(
+            mercator.x,
+            mercator.y,
+            mercator.z
+        );
+        
+        const scaleMatrix = new THREE.Matrix4().makeScale(
+            scale,
+            -scale,
+            scale
+        );
+        
+        const rotation = new THREE.Matrix4().makeRotationZ(
+            -this.visualHeading * Math.PI / 180
+        );
+        
+        const modelMatrix = translation
+            .clone()
+            .multiply(rotation)
+            .multiply(scaleMatrix);
+            
+        const cameraMatrix = new THREE.Matrix4().fromArray(matrix);
+        this.camera.projectionMatrix = cameraMatrix.multiply(modelMatrix);
         
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
         
-        // Only trigger repaint if we are actively interpolating heading
-        if (Math.abs(diff) > 0.1 && this.map) {
+        // For debugging, trigger repaint every render
+        if (this.map) {
             this.map.triggerRepaint();
         }
     }

@@ -102,7 +102,9 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
                vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
                if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
             }
+            console.log('[3D] ADDING LAYER', !!vehicle3DRef.current);
             map.addLayer(vehicle3DRef.current as any);
+            console.log('[3D] LAYER EXISTS', !!map.getLayer('nova-vehicle-3d'));
         }
       });
       map.on('sourcedata', (e) => {
