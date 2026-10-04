@@ -73,9 +73,9 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       const map = new MapLibreMap({
         container: mapContainer.current,
         style: novaStyle as StyleSpecification,
-        center: [-122.4194, 37.7749], // Phase 3: Known coordinate (San Francisco)
-        zoom: 18, // Phase 4: Forced zoom
-        pitch: 60, // Phase 4: Forced pitch
+        center: [0, 0],
+        zoom: 2,
+        pitch: 0
         attributionControl: false,
         canvasContextAttributes: {
             antialias: true
@@ -103,12 +103,12 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         setDiagnostics(d => ({ ...d, style: 'READY' }));
         initializeRouteLayers(map);
         if (vehicle3DRef.current && !map.getLayer(vehicle3DRef.current.id)) {
-            // Phase 3: Override GPS with forced coordinate
-            const loc = { longitude: -122.4194, latitude: 37.7749, heading: 0 };
-            
-            console.log('[NOVA 3D] GPS RECEIVED', loc);
-            vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
-            if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
+            const loc = currentLocationRef.current;
+            if (loc) {
+                console.log('[NOVA 3D] GPS RECEIVED', loc);
+                vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
+                if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
+            }
             
             console.log('[NOVA 3D] ADDING LAYER');
             map.addLayer(vehicle3DRef.current as any);
@@ -264,27 +264,15 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   }, [navState]);
 
   // Update Vehicle Model & Camera smoothly via requestAnimationFrame
-  const updateVisuals = useCallback((_location: GPSLocation) => {
+  const updateVisuals = useCallback((location: GPSLocation) => {
     if (!mapRef.current || mapStatus !== 'READY') return;
-    const map = mapRef.current;
-    
-    // Phase 3 & 4: Force location and camera state completely
-    const longitude = -122.4194;
-    const latitude = 37.7749;
-    const heading = 0;
 
     if (vehicle3DRef.current) {
-        vehicle3DRef.current.updatePosition(longitude, latitude);
-        if (heading !== null) {
-            vehicle3DRef.current.updateHeading(heading);
+        vehicle3DRef.current.updatePosition(location.longitude, location.latitude);
+        if (location.heading !== null) {
+            vehicle3DRef.current.updateHeading(location.heading);
         }
     }
-
-    // Phase 4: Force Camera state every frame just in case
-    map.setCenter([longitude, latitude]);
-    map.setZoom(18);
-    map.setPitch(60);
-    map.setBearing(0);
   }, [mapStatus]);
 
   useNavigationEngine(currentLocation, updateVisuals);
