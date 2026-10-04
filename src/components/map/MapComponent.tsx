@@ -77,6 +77,9 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         zoom: 2,
         pitch: 0,
         attributionControl: false,
+        canvasContextAttributes: {
+            antialias: true
+        }
       });
       map.addControl(new AttributionControl({ compact: true }), 'top-right');
       mapRef.current = map;

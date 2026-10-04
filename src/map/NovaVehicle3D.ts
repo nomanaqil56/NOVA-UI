@@ -60,67 +60,40 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private createProceduralFallback() {
         const procModel = new THREE.Group();
 
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.8 }); // Bright white
-        const glassMat = new THREE.MeshStandardMaterial({ color: 0x00008b, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.9 }); // Dark blue
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 });
-        const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff }); // Bright cyan
-        const redMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        // TEMPORARY BASIC MATERIALS FOR DEBUGGING
+        const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: true, depthWrite: true });
 
-        // MapLibre Z is Up. Y is North. X is East.
-        // We build the car so length is along Y, facing positive Y (North).
-
-        const chassisGeo = new THREE.BoxGeometry(1.9, 4.8, 0.5);
-        const chassis = new THREE.Mesh(chassisGeo, bodyMat);
-        chassis.position.set(0, 0, 0.4); // Centered, up a bit
+        // Temporarily make the vehicle much larger
+        // chassis: 8m long, 4m wide, 2m high
+        const chassisGeo = new THREE.BoxGeometry(4.0, 8.0, 2.0);
+        const chassis = new THREE.Mesh(chassisGeo, cyanMat);
+        chassis.position.set(0, 0, 1.0); // Centered, up a bit
         procModel.add(chassis);
 
-        const cabinGeo = new THREE.BoxGeometry(1.5, 2.6, 0.7);
-        const cabin = new THREE.Mesh(cabinGeo, glassMat);
-        cabin.position.set(0, -0.2, 1.0);
+        const cabinGeo = new THREE.BoxGeometry(3.0, 4.0, 1.0);
+        const cabin = new THREE.Mesh(cabinGeo, cyanMat);
+        cabin.position.set(0, -0.4, 2.5);
         procModel.add(cabin);
 
-        const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
+        const wheelGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.5, 16);
         wheelGeo.rotateZ(Math.PI / 2); // Put cylinder flat so wheels face sides
         const positions = [
-            [0.95, 1.5, 0.35],   // front right
-            [-0.95, 1.5, 0.35],  // front left
-            [0.95, -1.5, 0.35],  // rear right
-            [-0.95, -1.5, 0.35]  // rear left
+            [2.2, 2.5, 0.7],   // front right
+            [-2.2, 2.5, 0.7],  // front left
+            [2.2, -2.5, 0.7],  // rear right
+            [-2.2, -2.5, 0.7]  // rear left
         ];
         positions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            const wheel = new THREE.Mesh(wheelGeo, cyanMat);
             wheel.position.set(pos[0], pos[1], pos[2]);
             procModel.add(wheel);
         });
 
-        const frontLightGeo = new THREE.BoxGeometry(1.7, 0.1, 0.05);
-        const frontLight = new THREE.Mesh(frontLightGeo, cyanMat);
-        frontLight.position.set(0, 2.4, 0.6);
-        procModel.add(frontLight);
-
-        const rearLightGeo = new THREE.BoxGeometry(1.7, 0.1, 0.05);
-        const rearLight = new THREE.Mesh(rearLightGeo, redMat);
-        rearLight.position.set(0, -2.4, 0.6);
-        procModel.add(rearLight);
-
-        const sensorGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 16);
-        sensorGeo.rotateX(Math.PI / 2);
-        const sensor = new THREE.Mesh(sensorGeo, bodyMat);
-        sensor.position.set(0, 0.5, 1.35);
-        procModel.add(sensor);
-        
-        // Soft contact shadow (TEMPORARILY REMOVED)
-        // const shadowGeo = new THREE.PlaneGeometry(2.4, 5.2);
-        // const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false });
-        // const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-        // shadow.position.set(0, 0, 0.01);
-        // procModel.add(shadow);
-        
         // DEBUG SPHERE
-        const debugGeometry = new THREE.SphereGeometry(1.0, 16, 16);
-        const debugMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const debugGeometry = new THREE.SphereGeometry(2.0, 16, 16);
+        const debugMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: false, depthWrite: false });
         const debugSphere = new THREE.Mesh(debugGeometry, debugMaterial);
-        debugSphere.position.set(0, 0, 2);
+        debugSphere.position.set(0, 0, 5);
         procModel.add(debugSphere);
 
         this.proceduralModel = procModel;
@@ -211,12 +184,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
         
-        console.log('[3D] RENDER', {
-            location: this.currentLocation,
-            renderer: !!this.renderer,
-            map: !!this.map
-        });
-
         // Smooth visual heading towards current target
         const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);
         this.visualHeading += diff * 0.1; 
@@ -224,7 +191,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.visualHeading = ((this.visualHeading % 360) + 360) % 360;
         
         const mercator = maplibregl.MercatorCoordinate.fromLngLat(
-            this.currentLocation, 
+            {
+                lng: this.currentLocation.lng,
+                lat: this.currentLocation.lat
+            },
             this.currentAltitude
         );
         
@@ -233,52 +203,61 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             return;
         }
 
-        console.log('[3D] VEHICLE MERCATOR', {
-            x: mercator.x,
-            y: mercator.y,
-            z: mercator.z,
-            scale: mercator.meterInMercatorCoordinateUnits(),
-            mapCenter: this.map.getCenter(),
-            mapZoom: this.map.getZoom()
-        });
-
         const matrix = input.defaultProjectionData.mainMatrix;
         if (!matrix || matrix.length !== 16) {
             console.error('[3D] INVALID MAPLIBRE MATRIX');
             return;
         }
-        console.log('[3D] MATRIX OK');
 
         const scale = mercator.meterInMercatorCoordinateUnits();
         
-        const translation = new THREE.Matrix4().makeTranslation(
-            mercator.x,
-            mercator.y,
-            mercator.z
-        );
-        
-        const scaleMatrix = new THREE.Matrix4().makeScale(
-            scale,
-            -scale,
+        console.log('[3D] RENDERING VEHICLE', {
+            lng: this.currentLocation.lng,
+            lat: this.currentLocation.lat,
+            mercatorX: mercator.x,
+            mercatorY: mercator.y,
             scale
+        });
+
+        const rotationX = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(1, 0, 0),
+            0
         );
-        
-        const rotation = new THREE.Matrix4().makeRotationZ(
+
+        const rotationY = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(0, 1, 0),
+            0
+        );
+
+        const rotationZ = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(0, 0, 1),
             -this.visualHeading * Math.PI / 180
         );
-        
-        const modelMatrix = translation
-            .clone()
-            .multiply(rotation)
-            .multiply(scaleMatrix);
+
+        const m = new THREE.Matrix4().fromArray(matrix);
+
+        const l = new THREE.Matrix4()
+            .makeTranslation(
+                mercator.x,
+                mercator.y,
+                mercator.z
+            )
+            .scale(
+                new THREE.Vector3(
+                    scale,
+                    -scale,
+                    scale
+                )
+            )
+            .multiply(rotationX)
+            .multiply(rotationY)
+            .multiply(rotationZ);
             
-        const cameraMatrix = new THREE.Matrix4().fromArray(matrix);
-        this.camera.projectionMatrix = cameraMatrix.multiply(modelMatrix);
+        this.camera.projectionMatrix = m.multiply(l);
         
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
         
-        // For debugging, trigger repaint every render
         if (this.map) {
             this.map.triggerRepaint();
         }
