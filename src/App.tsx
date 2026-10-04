@@ -6,14 +6,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="w-full h-full bg-background p-8 flex flex-col items-center justify-center text-primary-muted">
-      <h1 className="text-2xl font-light tracking-widest mb-2">{title.toUpperCase()}</h1>
-      <p className="text-sm">Module coming soon</p>
-    </div>
-  );
-}
+import { ModulePage } from './components/shared/ModulePage';
 
 function App() {
   const { role } = useRole();
@@ -37,27 +30,27 @@ function App() {
             <Route index element={null} />
             <Route path="nav" element={<NavigationPage />} />
           </Route>
-          <Route path="vehicle" element={<PlaceholderPage title="Vehicle" />} />
-          <Route path="trips" element={<PlaceholderPage title="Trips" />} />
-          <Route path="alerts" element={<PlaceholderPage title="Alerts" />} />
+          <Route path="vehicle" element={<ModulePage title="Vehicle" />} />
+          <Route path="trips" element={<ModulePage title="Trips" />} />
+          <Route path="alerts" element={<ModulePage title="Alerts" />} />
           <Route path="*" element={<Navigate to="/driver" replace />} />
         </Route>
         
         <Route path="admin">
           <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<PlaceholderPage title="Users" />} />
-          <Route path="system" element={<PlaceholderPage title="System" />} />
-          <Route path="software" element={<PlaceholderPage title="Software" />} />
-          <Route path="alerts" element={<PlaceholderPage title="Alerts" />} />
+          <Route path="users" element={<ModulePage title="Users" />} />
+          <Route path="system" element={<ModulePage title="System" />} />
+          <Route path="software" element={<ModulePage title="Software" />} />
+          <Route path="alerts" element={<ModulePage title="Alerts" />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
         
         <Route path="tech">
           <Route index element={<TechnicianDashboard />} />
-          <Route path="diagnostics" element={<PlaceholderPage title="Diagnostics" />} />
-          <Route path="issues" element={<PlaceholderPage title="Issues" />} />
-          <Route path="tests" element={<PlaceholderPage title="Tests" />} />
-          <Route path="maintenance" element={<PlaceholderPage title="Maintenance" />} />
+          <Route path="diagnostics" element={<ModulePage title="Diagnostics" />} />
+          <Route path="issues" element={<ModulePage title="Issues" />} />
+          <Route path="tests" element={<ModulePage title="Tests" />} />
+          <Route path="maintenance" element={<ModulePage title="Maintenance" />} />
           <Route path="*" element={<Navigate to="/tech" replace />} />
         </Route>
       </Route>

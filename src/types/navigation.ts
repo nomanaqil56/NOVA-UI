@@ -32,3 +32,13 @@ export interface RouteOption {
 }
 
 export type GPSState = 'DISCONNECTED' | 'SEARCHING' | 'CONNECTED' | 'DENIED' | 'ERROR';
+export type NavState = 'IDLE' | 'GPS_ACQUIRING' | 'READY' | 'ROUTE_PREVIEW' | 'NAVIGATING' | 'RECALCULATING' | 'ARRIVED' | 'CANCELLED' | 'ERROR';
+export type CameraMode = 'INITIALIZING' | 'GPS_ACQUIRE' | 'OVERVIEW' | 'ROUTE_PREVIEW' | 'NAVIGATION' | 'USER_EXPLORE';
+
+export interface RouteProgress {
+  distanceRemaining: number;
+  durationRemaining: number;
+  progressPercentage: number;
+  currentSegmentIndex: number;
+  distanceToNextManeuver: number;
+}

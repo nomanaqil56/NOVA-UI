@@ -1,4 +1,4 @@
-import { useState } from 'react';
+
 import { Wifi, AlertCircle, RefreshCw } from 'lucide-react';
 import type { GPSState } from '../../types/navigation';
 import { cn } from '../../lib/utils';
