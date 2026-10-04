@@ -75,7 +75,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         style: novaStyle as StyleSpecification,
         center: [0, 0],
         zoom: 2,
-        pitch: 0
+        pitch: 0,
         attributionControl: false,
         canvasContextAttributes: {
             antialias: true
