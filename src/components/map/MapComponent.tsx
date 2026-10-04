@@ -9,6 +9,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { novaStyle } from '../../map/novaStyle';
 import { useNavigationEngine } from '../../hooks/useNavigationEngine';
 import { useNavigation } from '../../context/NavigationContext';
+import { NovaVehicle3DLayer } from '../../map/NovaVehicle3D';
 
 setWorkerUrl(workerUrl);
 
@@ -37,8 +38,8 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
 
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const vehicleMarkerRef = useRef<Marker | null>(null);
   const destinationMarkerRef = useRef<Marker | null>(null);
+  const vehicle3DRef = useRef<NovaVehicle3DLayer | null>(null);
   
   const cameraTransitionUntil = useRef<number>(0);
   
@@ -47,16 +48,16 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
+  // Initialize Map (Strictly once or on retry, independent of navigation state)
   const initMap = useCallback(() => {
     if (!mapContainer.current) return;
     
     if (mapRef.current) {
-      if (vehicleMarkerRef.current) vehicleMarkerRef.current.remove();
       if (destinationMarkerRef.current) destinationMarkerRef.current.remove();
-      vehicleMarkerRef.current = null;
       destinationMarkerRef.current = null;
       mapRef.current.remove();
       mapRef.current = null;
+      vehicle3DRef.current = null;
     }
 
     setMapStatus('INITIALIZING');
@@ -72,6 +73,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       });
       map.addControl(new AttributionControl({ compact: true }), 'top-right');
       mapRef.current = map;
+      vehicle3DRef.current = new NovaVehicle3DLayer();
 
       map.on('error', (e) => {
         setDiagnostics(d => ({ ...d, errorCount: d.errorCount + 1 }));
@@ -87,6 +89,9 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       map.on('style.load', () => {
         setDiagnostics(d => ({ ...d, style: 'READY' }));
         initializeRouteLayers(map);
+        if (vehicle3DRef.current && !map.getLayer(vehicle3DRef.current.id)) {
+            map.addLayer(vehicle3DRef.current as any);
+        }
       });
       map.on('sourcedata', (e) => {
         if (e.isSourceLoaded) {
@@ -99,6 +104,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         setDiagnostics(d => ({ ...d, tiles: 'READY' }));
       });
       map.on('dragstart', () => {
+        // We read the ref/current values directly to avoid dependency loops
         if (cameraMode !== 'INITIALIZING' && cameraMode !== 'GPS_ACQUIRE') {
           setCameraMode('USER_EXPLORE');
         }
@@ -113,7 +119,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
     } catch (err) {
       setMapStatus('ERROR');
     }
-  }, [retryTrigger, setCameraMode, cameraMode]);
+  }, [retryTrigger, onMapClick]); // Notice cameraMode and setCameraMode are deliberately omitted to prevent re-instantiation
 
   useEffect(() => {
     initMap();
@@ -122,10 +128,10 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
     return () => {
       resizeObserver.disconnect();
       if (mapRef.current) {
-        if (vehicleMarkerRef.current) vehicleMarkerRef.current.remove();
         if (destinationMarkerRef.current) destinationMarkerRef.current.remove();
         mapRef.current.remove();
         mapRef.current = null;
+        vehicle3DRef.current = null;
       }
     };
   }, [initMap]);
@@ -150,7 +156,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
     }
   }, [activeRoute, mapStatus]);
 
-  // Handle Camera Mode Transitions
+  // Handle Camera Mode Transitions (Only modifying existing map)
   useEffect(() => {
     if (mapStatus !== 'READY' || !mapRef.current) return;
     const map = mapRef.current;
@@ -164,10 +170,10 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         cameraTransitionUntil.current = performance.now() + 1500;
         map.easeTo({
           center: [currentLocation.longitude, currentLocation.latitude],
-          pitch: 55,
+          pitch: 60,
           bearing: currentLocation.heading || map.getBearing(),
           padding: { bottom: 250, top: 0, left: 0, right: 0 },
-          zoom: 15.5,
+          zoom: 16.5,
           duration: 1500
         });
     } else if (cameraMode === 'OVERVIEW' && currentLocation) {
@@ -187,7 +193,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         if (!mapRef.current) return;
         const triggerFinalZoom = () => {
           if (cameraMode === 'GPS_ACQUIRE' && mapRef.current) {
-            mapRef.current.flyTo({ center: [currentLocation.longitude, currentLocation.latitude], zoom: 15.5, duration: 2000, essential: true });
+            mapRef.current.flyTo({ center: [currentLocation.longitude, currentLocation.latitude], zoom: 16.5, duration: 2000, essential: true });
             mapRef.current.once('moveend', () => {
               if (cameraMode === 'GPS_ACQUIRE') {
                 setCameraMode('OVERVIEW');
@@ -199,48 +205,27 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         else mapRef.current.once('idle', triggerFinalZoom);
       });
     }
-  }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode]); // Intentionally omitting currentLocation to prevent constant re-triggering of transitions
+  }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode]); 
 
-  // Update Vehicle Marker & Camera smoothly via requestAnimationFrame
+  // Pass navigation state to vehicle layer
+  useEffect(() => {
+    if (vehicle3DRef.current) {
+        vehicle3DRef.current.updateNavState(navState);
+    }
+  }, [navState]);
+
+  // Update Vehicle Model & Camera smoothly via requestAnimationFrame
   const updateVisuals = useCallback((location: GPSLocation) => {
     if (!mapRef.current || mapStatus !== 'READY') return;
     const map = mapRef.current;
     const { longitude, latitude, heading } = location;
 
-    if (!vehicleMarkerRef.current) {
-      const el = document.createElement('div');
-      el.className = 'vehicle-marker-wrapper';
-      el.innerHTML = `
-        <div class="absolute w-40 h-40 -ml-20 -mt-20 rounded-full bg-[radial-gradient(circle,rgba(0,210,255,0.15)_0%,transparent_70%)] opacity-0 transition-opacity duration-1000 \${navState === 'NAVIGATING' ? 'opacity-100' : ''}"></div>
-        <div class="relative flex items-center justify-center transition-transform duration-300" style="transform: translate(-50%, -50%);">
-          <svg width="40" height="80" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 10px 15px rgba(0,0,0,0.8));">
-            <defs>
-              <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#2a3344" /><stop offset="30%" stop-color="#1a202c" /><stop offset="100%" stop-color="#0f172a" />
-              </linearGradient>
-              <linearGradient id="glassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#020617" /><stop offset="100%" stop-color="#0f172a" />
-              </linearGradient>
-            </defs>
-            <path d="M 20,20 C 20,5 80,5 80,20 L 85,170 C 85,190 15,190 15,170 Z" fill="url(#bodyGrad)" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.3"/>
-            <path d="M 30,22 C 50,15 50,15 70,22 L 65,55 L 35,55 Z" fill="#334155" opacity="0.5" />
-            <path d="M 25,60 C 50,50 50,50 75,60 L 80,90 C 50,85 50,85 20,90 Z" fill="url(#glassGrad)" stroke="#1e293b" stroke-width="2"/>
-            <path d="M 28,95 L 72,95 L 68,140 L 32,140 Z" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-            <path d="M 30,145 L 70,145 L 75,160 C 50,155 50,155 25,160 Z" fill="#020617" />
-            <rect x="20" y="175" width="12" height="4" rx="2" fill="#ef4444" opacity="0.9" />
-            <rect x="68" y="175" width="12" height="4" rx="2" fill="#ef4444" opacity="0.9" />
-            <ellipse cx="25" cy="15" rx="6" ry="4" fill="#e0f2fe" opacity="0.9" />
-            <ellipse cx="75" cy="15" rx="6" ry="4" fill="#e0f2fe" opacity="0.9" />
-          </svg>
-        </div>
-      `;
-      vehicleMarkerRef.current = new Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' })
-      .setLngLat([longitude, latitude]).addTo(map);
-    } else {
-      vehicleMarkerRef.current.setLngLat([longitude, latitude]);
+    if (vehicle3DRef.current) {
+        vehicle3DRef.current.updatePosition(longitude, latitude);
+        if (heading !== null) {
+            vehicle3DRef.current.updateHeading(heading);
+        }
     }
-
-    if (heading !== null) vehicleMarkerRef.current.setRotation(heading);
 
     if (cameraMode === 'OVERVIEW' || cameraMode === 'NAVIGATION') {
       if (performance.now() < cameraTransitionUntil.current) return;
@@ -248,10 +233,10 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       if (cameraMode === 'NAVIGATION' && heading !== null) map.setBearing(heading);
       else if (cameraMode === 'OVERVIEW' && !is3D) map.setBearing(0);
       
-      map.setPitch(cameraMode === 'NAVIGATION' ? 55 : (is3D ? 60 : 0));
+      map.setPitch(cameraMode === 'NAVIGATION' ? 60 : (is3D ? 60 : 0));
       map.setPadding(cameraMode === 'NAVIGATION' ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 });
     }
-  }, [mapStatus, cameraMode, is3D, navState]);
+  }, [mapStatus, cameraMode, is3D]);
 
   useNavigationEngine(currentLocation, updateVisuals);
 
@@ -311,6 +296,8 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
             <span className="text-primary-muted">Errors:</span><span className={diagnostics.errorCount > 0 ? 'text-red-400' : 'text-green-400'}>{diagnostics.errorCount}</span>
             <span className="text-primary-muted">GPS:</span><span className={currentLocation ? 'text-green-400' : 'text-red-400'}>{currentLocation ? 'CONNECTED' : 'WAITING'}</span>
             <span className="text-primary-muted">Route:</span><span className={activeRoute ? 'text-green-400' : 'text-primary'}>{activeRoute ? 'ACTIVE' : 'NONE'}</span>
+            <span className="text-primary-muted mt-1 border-t border-white/10 pt-1">Vehicle:</span>
+            <span className="mt-1 border-t border-white/10 pt-1 text-accent">{vehicle3DRef.current ? vehicle3DRef.current.status : 'WAITING'}</span>
           </div>
         </div>
       )}
