@@ -73,17 +73,19 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       const map = new MapLibreMap({
         container: mapContainer.current,
         style: novaStyle as StyleSpecification,
-        center: [0, 0],
-        zoom: 2,
-        pitch: 0,
+        center: [-122.4194, 37.7749], // Phase 3: Known coordinate (San Francisco)
+        zoom: 18, // Phase 4: Forced zoom
+        pitch: 60, // Phase 4: Forced pitch
         attributionControl: false,
         canvasContextAttributes: {
             antialias: true
         }
       });
+      console.log('[NOVA 3D] MAP CREATED');
       map.addControl(new AttributionControl({ compact: true }), 'top-right');
       mapRef.current = map;
       vehicle3DRef.current = new NovaVehicle3DLayer();
+      console.log('[NOVA 3D] LAYER CREATED');
 
       map.on('error', (e) => {
         setDiagnostics(d => ({ ...d, errorCount: d.errorCount + 1 }));
@@ -97,17 +99,20 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         else if (e.dataType === 'source') { setDiagnostics(d => ({ ...d, tiles: 'LOADING' })); }
       });
       map.on('style.load', () => {
+        console.log('[NOVA 3D] STYLE LOADED');
         setDiagnostics(d => ({ ...d, style: 'READY' }));
         initializeRouteLayers(map);
         if (vehicle3DRef.current && !map.getLayer(vehicle3DRef.current.id)) {
-            const loc = currentLocationRef.current;
-            if (loc) {
-               vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
-               if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
-            }
-            console.log('[3D] ADDING LAYER', !!vehicle3DRef.current);
+            // Phase 3: Override GPS with forced coordinate
+            const loc = { longitude: -122.4194, latitude: 37.7749, heading: 0 };
+            
+            console.log('[NOVA 3D] GPS RECEIVED', loc);
+            vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
+            if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
+            
+            console.log('[NOVA 3D] ADDING LAYER');
             map.addLayer(vehicle3DRef.current as any);
-            console.log('[3D] LAYER EXISTS', !!map.getLayer('nova-vehicle-3d'));
+            console.log('[NOVA 3D] LAYER REGISTERED', map.getLayer('nova-vehicle-3d') !== undefined);
         }
       });
       map.on('sourcedata', (e) => {
@@ -259,10 +264,14 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   }, [navState]);
 
   // Update Vehicle Model & Camera smoothly via requestAnimationFrame
-  const updateVisuals = useCallback((location: GPSLocation) => {
+  const updateVisuals = useCallback((_location: GPSLocation) => {
     if (!mapRef.current || mapStatus !== 'READY') return;
     const map = mapRef.current;
-    const { longitude, latitude, heading } = location;
+    
+    // Phase 3 & 4: Force location and camera state completely
+    const longitude = -122.4194;
+    const latitude = 37.7749;
+    const heading = 0;
 
     if (vehicle3DRef.current) {
         vehicle3DRef.current.updatePosition(longitude, latitude);
@@ -271,16 +280,12 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         }
     }
 
-    if (cameraMode === 'OVERVIEW' || cameraMode === 'NAVIGATION') {
-      if (performance.now() < cameraTransitionUntil.current) return;
-      map.setCenter([longitude, latitude]);
-      if (cameraMode === 'NAVIGATION' && heading !== null) map.setBearing(heading);
-      else if (cameraMode === 'OVERVIEW' && !is3D) map.setBearing(0);
-      
-      map.setPitch(cameraMode === 'NAVIGATION' ? 60 : (is3D ? 60 : 0));
-      map.setPadding(cameraMode === 'NAVIGATION' ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 });
-    }
-  }, [mapStatus, cameraMode, is3D]);
+    // Phase 4: Force Camera state every frame just in case
+    map.setCenter([longitude, latitude]);
+    map.setZoom(18);
+    map.setPitch(60);
+    map.setBearing(0);
+  }, [mapStatus]);
 
   useNavigationEngine(currentLocation, updateVisuals);
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as maplibregl from 'maplibre-gl';
 import type { CustomLayerInterface, CustomRenderMethodInput } from 'maplibre-gl';
 
@@ -14,9 +14,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private renderer: THREE.WebGLRenderer | null = null;
     
     private modelGroup: THREE.Group;
-    private glbModel: THREE.Group | null = null;
+    // private glbModel: THREE.Group | null = null;
     // private glbWrapper: THREE.Group | null = null;
-    private proceduralModel: THREE.Group | null = null;
+    // private proceduralModel: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
     
     private currentLocation: { lng: number, lat: number } | null = null;
@@ -33,19 +33,21 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.modelGroup = new THREE.Group();
         this.scene.add(this.modelGroup);
 
-        console.log('[3D] CONSTRUCTOR');
+        console.log('[NOVA 3D] CONSTRUCTOR');
         this.setupLighting();
         
-        // Add Temporary Debug Box (Task 5)
-        const debugGeo = new THREE.BoxGeometry(2, 5, 2); // 2m wide, 5m long, 2m high
-        const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: false, depthTest: false }); // Highly visible
+        // Add Temporary Debug Box (Phase 1)
+        const debugGeo = new THREE.BoxGeometry(2, 5, 1.5); // 2m wide, 5m long, 1.5m high
+        const debugMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: false, depthTest: false, depthWrite: false }); // Highly visible
         const debugMesh = new THREE.Mesh(debugGeo, debugMat);
-        debugMesh.position.set(0, 0, 1); // Sit exactly on map surface (Z center = 1)
+        // Box position is centered, so we raise it by 0.75m to sit exactly on the surface
+        debugMesh.position.set(0, 0, 0.75); 
         this.modelGroup.add(debugMesh);
         
-        this.loadGLBModel();
+        // Phase 1: Disable GLB loading completely
+        // this.loadGLBModel();
         
-        console.log('[3D] MODEL CHILDREN', this.modelGroup.children.length);
+        console.log('[NOVA 3D] MODEL CHILDREN', this.modelGroup.children.length);
     }
 
     private setupLighting() {
@@ -65,6 +67,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.modelGroup.add(this.underglow);
     }
 
+    /*
     private createProceduralFallback() {
         const procModel = new THREE.Group();
 
@@ -79,7 +82,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.modelGroup.add(this.proceduralModel);
         this.status = 'PROCEDURAL_FALLBACK';
     }
+    */
 
+    /*
     private loadGLBModel() {
         const loader = new GLTFLoader();
         console.log('[NOVA 3D] GLB REQUEST');
@@ -147,9 +152,14 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             this.createProceduralFallback();
         });
     }
+    */
 
+    private hasLoggedPosition = false;
     public updatePosition(lng: number, lat: number) {
-        console.log('[3D] POSITION', lng, lat);
+        if (!this.hasLoggedPosition) {
+            console.log('[NOVA 3D] POSITION_RECEIVED', lng, lat);
+            this.hasLoggedPosition = true;
+        }
         this.currentLocation = { lng, lat };
         if (this.map) this.map.triggerRepaint();
     }
@@ -176,7 +186,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     public onAdd(map: maplibregl.Map, gl: WebGLRenderingContext) {
-        console.log('[3D] ON_ADD');
+        console.log('[NOVA 3D] ON_ADD');
         this.map = map;
         this.renderer = new THREE.WebGLRenderer({
             canvas: map.getCanvas(),
@@ -186,8 +196,13 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.renderer.autoClear = false;
     }
 
+    private hasLoggedRender = false;
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
+        
+        if (!this.hasLoggedRender) {
+            console.log('[NOVA 3D] RENDER_ENTERED');
+        }
         
         // Smooth visual heading towards current target
         const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);
@@ -216,13 +231,20 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         const scale = mercator.meterInMercatorCoordinateUnits();
         
-        console.log('[3D] RENDERING VEHICLE', {
-            lng: this.currentLocation.lng,
-            lat: this.currentLocation.lat,
-            mercatorX: mercator.x,
-            mercatorY: mercator.y,
-            scale
-        });
+        if (!this.hasLoggedRender) {
+            console.log('[NOVA 3D] RENDERING_DEBUG_OBJECT', {
+                lng: this.currentLocation.lng,
+                lat: this.currentLocation.lat,
+                mercatorX: mercator.x,
+                mercatorY: mercator.y,
+                scale,
+                rendererExists: !!this.renderer,
+                sceneExists: !!this.scene,
+                cameraExists: !!this.camera,
+                matrixLength: matrix.length
+            });
+            this.hasLoggedRender = true;
+        }
 
         const rotationX = new THREE.Matrix4().makeRotationAxis(
             new THREE.Vector3(1, 0, 0),
