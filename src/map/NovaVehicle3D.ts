@@ -245,21 +245,21 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private getZoomVisualMultiplier(zoom: number): number {
         // Continuous smooth interpolation between precise visual multiplier control points
         const controlPoints: [number, number][] = [
-            [18, 1.00],
-            [17, 1.03],
-            [16, 1.08],
-            [15, 1.15],
-            [14, 1.28],
-            [13, 1.45],
-            [12, 1.65],
-            [11, 1.90],
-            [10, 2.20],
-            [9, 2.55],
-            [8, 2.90]
+            [18, 1.0],
+            [17, 1.9],
+            [16, 3.6],
+            [15, 6.8],
+            [14, 13.0],
+            [13, 24.7],
+            [12, 47.0],
+            [11, 89.3],
+            [10, 169.8],
+            [9, 322.6],
+            [8, 613.1]
         ];
 
         if (zoom >= 18) return 1.00;
-        if (zoom <= 8) return 2.90;
+        if (zoom <= 8) return 613.1;
 
         for (let i = 0; i < controlPoints.length - 1; i++) {
             const [z1, v1] = controlPoints[i]; // Higher zoom
@@ -299,15 +299,34 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const visualMultiplier = this.getZoomVisualMultiplier(zoom);
         const finalScale = meterScale * visualMultiplier;
 
-        if (performance.now() - this.lastLogTime > 1000) {
+        if (performance.now() - this.lastLogTime > 2000) {
             this.lastLogTime = performance.now();
+            let rootScaleStr = 'N/A';
+            let sourcePosStr = 'N/A';
+            
+            if (this.modelGroup.children.length > 0) {
+                // Find the GLB root (should be the last child added after underglow and fallback)
+                const root = this.modelGroup.children.find(c => c.type === 'Group' && c.children.length > 0 && c !== this.fallbackRoot);
+                if (root) {
+                    rootScaleStr = root.scale.toArray().map(v => v.toFixed(6)).join(', ');
+                    const source = root.children[0];
+                    if (source) {
+                        sourcePosStr = source.position.toArray().map(v => v.toFixed(6)).join(', ');
+                    }
+                }
+            }
+
             console.log(
-                `[NOVA VEHICLE]\n` +
-                `Vehicle: GLB\n` +
-                `Zoom: ${zoom.toFixed(2)}\n` +
-                `Physical Scale: ${meterScale.toFixed(8)}\n` +
-                `Visual Multiplier: ${visualMultiplier.toFixed(2)}\n` +
-                `Final Scale: ${finalScale.toFixed(8)}\n`
+                `[NOVA 3D DIAGNOSTICS]\n` +
+                `Vehicle Status: ${this.status}\n` +
+                `GPS: ${this.currentLocation.lng.toFixed(6)}, ${this.currentLocation.lat.toFixed(6)}\n` +
+                `Mercator: X:${mercator.x.toFixed(6)} Y:${mercator.y.toFixed(6)} Z:${mercator.z.toFixed(6)}\n` +
+                `Map Zoom: ${zoom.toFixed(4)}\n` +
+                `Meter Scale: ${meterScale.toExponential(4)}\n` +
+                `Visual Multiplier: ${visualMultiplier.toFixed(4)}\n` +
+                `Final Scale: ${finalScale.toExponential(4)}\n` +
+                `GLB Root Scale: ${rootScaleStr}\n` +
+                `GLB Source Pos: ${sourcePosStr}\n`
             );
         }
 
