@@ -40,8 +40,10 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
 
   useEffect(() => {
     if (query.trim().length < 2) {
+      searchRequestId.current += 1;
       setResults([]);
       setError(false);
+      setShowResults(false);
       return;
     }
 
@@ -140,9 +142,15 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
                 SEARCH UNAVAILABLE
               </div>
             ) : results.length === 0 && !isSearching ? (
-              <div className="p-4 text-sm text-primary-muted font-medium text-center">
-                NO DESTINATIONS FOUND<br/>
-                <span className="text-xs opacity-70">Try a broader search</span>
+              <div className="p-5 text-sm text-primary-muted font-medium">
+                <div className="text-primary font-bold mb-2">NO EXACT MATCH</div>
+                <div className="opacity-70 mb-2">Try:</div>
+                <ul className="list-disc pl-5 space-y-1 opacity-70 text-xs">
+                  <li>a shorter place name</li>
+                  <li>a landmark</li>
+                  <li>a nearby area</li>
+                  <li>selecting directly on the map</li>
+                </ul>
               </div>
             ) : (
               results.map((r, i) => (

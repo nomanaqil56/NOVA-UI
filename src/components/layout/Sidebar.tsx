@@ -100,9 +100,10 @@ export const Sidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-4 w-full px-3">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path) && item.path !== '/driver' && item.path !== '/admin' && item.path !== '/tech');
-          const isExactActive = location.pathname === item.path;
-          const active = isActive || isExactActive;
+          const isRootOverview = item.path === '/driver' || item.path === '/admin' || item.path === '/tech';
+          const active = isRootOverview 
+            ? location.pathname === item.path || location.pathname === `${item.path}/`
+            : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           
           return (
             <button
@@ -130,7 +131,9 @@ export const Sidebar = () => {
 
       {/* Bottom Actions */}
       <div className="flex flex-col gap-4 w-full px-3 mt-auto">
-        <button className="flex flex-col items-center justify-center w-full aspect-square rounded-2xl text-primary-muted hover:text-primary hover:bg-surface-elevated transition-all">
+        <button 
+          disabled
+          className="flex flex-col items-center justify-center w-full aspect-square rounded-2xl text-primary-muted hover:text-primary hover:bg-surface-elevated transition-all opacity-50 cursor-not-allowed">
           <Settings className="w-6 h-6" />
         </button>
         <div className="w-full flex justify-center">

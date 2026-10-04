@@ -10,16 +10,13 @@ interface GPSStatusProps {
 }
 
 export const GPSStatus = ({ gpsState, accuracy, onEnableGPS }: GPSStatusProps) => {
-  const [showPrompt, setShowPrompt] = useState(gpsState === 'DISCONNECTED');
-
-  if (showPrompt && gpsState === 'DISCONNECTED') {
+  if (gpsState === 'DISCONNECTED') {
     return (
       <div className="glass-panel-elevated rounded-2xl p-6 border-l-2 border-l-accent w-full max-w-sm fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 shadow-2xl">
         <h3 className="text-lg font-bold mb-2">LOCATION SERVICES</h3>
         <p className="text-sm text-primary-muted mb-6">Enable location to activate live vehicle navigation.</p>
         <button 
           onClick={() => {
-            setShowPrompt(false);
             onEnableGPS();
           }}
           className="w-full bg-accent text-black font-bold py-3 rounded-xl hover:bg-accent/80 transition-colors"

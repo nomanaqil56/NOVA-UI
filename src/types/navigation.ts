@@ -28,6 +28,7 @@ export interface RouteOption {
   distance: number; // in meters
   duration: number; // in seconds
   geometry: RouteGeometry;
+  type: string;
 }
 
 export type GPSState = 'DISCONNECTED' | 'SEARCHING' | 'CONNECTED' | 'DENIED' | 'ERROR';

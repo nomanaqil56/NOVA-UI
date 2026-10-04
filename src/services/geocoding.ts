@@ -1,6 +1,6 @@
 import type { GeocodingResult, GPSLocation } from '../types/navigation';
 
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 // Helper to calculate haversine distance
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -14,10 +14,13 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c;
 };
 
-const searchCache: Record<string, GeocodingResult[]> = {};
+const searchCache = new Map<string, { timestamp: number, data: GeocodingResult[] }>();
 
 export const searchDestination = async (query: string, location: GPSLocation | null): Promise<GeocodingResult[]> => {
-  const cleanQuery = query.trim().replace(/\s+/g, ' ');
+  let cleanQuery = query.trim().replace(/,+/g, ' ').replace(/\s+/g, ' ');
+  const nearMeRegex = /\b(near me|nearby)\b/i;
+  cleanQuery = cleanQuery.replace(nearMeRegex, '').trim();
+
   if (!cleanQuery || cleanQuery.length < 2) return [];
   
   let cacheKey = cleanQuery.toLowerCase();
@@ -27,14 +30,15 @@ export const searchDestination = async (query: string, location: GPSLocation | n
     cacheKey += `_${latGrid}_${lonGrid}`;
   }
 
-  if (searchCache[cacheKey]) {
-    return searchCache[cacheKey];
+  if (searchCache.has(cacheKey)) {
+    return searchCache.get(cacheKey)!.data;
   }
 
   try {
-    let url = `${NOMINATIM_BASE_URL}?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=10`;
+    // Bias heavily to India, but allow other results
+    let url = `${NOMINATIM_BASE_URL}/search?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=10&countrycodes=in`;
     
-    // Bias towards current location if available
+    // Bias towards current location if available or "near me" used
     if (location) {
       const viewboxWidth = 1.0; // ~100km
       const minLon = location.longitude - viewboxWidth;
@@ -119,10 +123,66 @@ export const searchDestination = async (query: string, location: GPSLocation | n
     results.sort((a: any, b: any) => a.score - b.score);
 
     const finalResults = results.slice(0, 5); // Return top 5
-    searchCache[cacheKey] = finalResults;
+    if (searchCache.size >= 100) {
+      const firstKey = searchCache.keys().next().value;
+      if (firstKey) searchCache.delete(firstKey);
+    }
+    searchCache.set(cacheKey, { timestamp: Date.now(), data: finalResults });
     return finalResults;
   } catch (error) {
     console.error('Geocoding error:', error);
     throw error; // Throw error to trigger error state in UI
+  }
+};
+
+export const reverseGeocode = async (lat: number, lon: number): Promise<GeocodingResult> => {
+  const url = `${NOMINATIM_BASE_URL}/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': 'Nova_Autonomous_Dashboard/1.0'
+      }
+    });
+    if (!response.ok) throw new Error('Reverse geocoding failed');
+    const data = await response.json();
+    
+    const address = data.address || {};
+    const primaryName = data.name || address.road || address.neighbourhood || address.suburb || address.city || data.display_name?.split(',')[0] || '';
+    
+    const contextParts = [
+      address.neighbourhood,
+      address.suburb,
+      address.city || address.town || address.village,
+      address.state,
+      address.country
+    ].filter(Boolean);
+    
+    const filteredContext = contextParts.filter(p => p.toLowerCase() !== primaryName.toLowerCase());
+    const context = filteredContext.length > 0 ? filteredContext.join(', ') : data.display_name;
+
+    return {
+      placeId: data.place_id ? data.place_id.toString() : `${lat},${lon}`,
+      name: primaryName || `Selected Location`,
+      displayName: context || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+      lat,
+      lon,
+      type: data.type || 'coordinate',
+      score: 0,
+      distance: 0
+    };
+  } catch (err) {
+    console.error('Reverse geocoding error:', err);
+    // Return a fallback result so the user can still navigate there
+    return {
+      placeId: `${lat},${lon}`,
+      name: `Selected Location`,
+      displayName: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+      lat,
+      lon,
+      type: 'coordinate',
+      score: 0,
+      distance: 0
+    };
   }
 };

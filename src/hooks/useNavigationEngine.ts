@@ -39,8 +39,31 @@ export const useNavigationEngine = (
     }
     lastUpdateTime.current = now;
 
+    const startLoc = currentVisualLocation.current || targetLocation.current;
+    
+    if (startLoc) {
+      const R = 6371e3;
+      const p1 = startLoc.latitude * Math.PI/180;
+      const p2 = rawLocation.latitude * Math.PI/180;
+      const dp = (rawLocation.latitude - startLoc.latitude) * Math.PI/180;
+      const dl = (rawLocation.longitude - startLoc.longitude) * Math.PI/180;
+      const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+
+      if (distance > 100) {
+        lastLocation.current = rawLocation;
+        targetLocation.current = rawLocation;
+        currentVisualLocation.current = rawLocation;
+        lastUpdateTime.current = now;
+        onUpdateRef.current(rawLocation);
+        if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
+        return;
+      }
+    }
+
     // Start from wherever the animation ACTUALLY is right now, not where it was supposed to finish.
-    lastLocation.current = currentVisualLocation.current || targetLocation.current; 
+    lastLocation.current = startLoc; 
     targetLocation.current = rawLocation;
     startTime.current = now;
 

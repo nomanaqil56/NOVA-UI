@@ -9,6 +9,7 @@ export const TechnicianDashboard = () => {
   ]);
   const [cmd, setCmd] = useState('');
 
+  const consoleEpoch = useRef(0);
   const pendingTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -19,11 +20,22 @@ export const TechnicianDashboard = () => {
 
   const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && cmd.trim()) {
+      if (cmd.toLowerCase().trim() === 'clear') {
+        consoleEpoch.current++;
+        pendingTimeouts.current.forEach(t => clearTimeout(t));
+        pendingTimeouts.current = [];
+        setConsoleOutput([]);
+        setCmd('');
+        return;
+      }
+      
       setConsoleOutput(prev => [...prev, { text: `> ${cmd}`, type: 'cmd' }]);
       
       const response = executeMockCommand(cmd);
+      const currentEpoch = consoleEpoch.current;
       if (response.length > 0) {
         const t = setTimeout(() => {
+          if (consoleEpoch.current !== currentEpoch) return;
           setConsoleOutput(prev => [...prev, ...response]);
           pendingTimeouts.current = pendingTimeouts.current.filter(id => id !== t);
         }, 400);
@@ -40,12 +52,6 @@ export const TechnicianDashboard = () => {
     if (c === 'sensors.check') return [{ text: '12/12 SENSOR MODULES ONLINE', type: 'success' }];
     if (c === 'lidar.scan') return [{ text: 'FRONT_LIDAR: NORMAL, RANGE: 150M', type: 'success' }];
     if (c === 'camera.verify') return [{ text: '8/8 CAMERAS ONLINE, CALIBRATION OK', type: 'success' }];
-    if (c === 'clear') {
-      pendingTimeouts.current.forEach(t => clearTimeout(t));
-      pendingTimeouts.current = [];
-      setConsoleOutput([]);
-      return [];
-    }
     return [{ text: `Command not recognized: ${c}`, type: 'error' }];
   };
 

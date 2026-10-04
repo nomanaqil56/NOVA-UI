@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 export type Role = 'DRIVER' | 'ADMIN' | 'TECHNICIAN';
 
@@ -10,7 +10,19 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  const [role, setRole] = useState<Role>('DRIVER');
+  const [role, setRole] = useState<Role>(() => {
+    try {
+      const stored = localStorage.getItem('nova_role');
+      if (stored === 'DRIVER' || stored === 'ADMIN' || stored === 'TECHNICIAN') {
+        return stored;
+      }
+    } catch(e) {}
+    return 'DRIVER';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nova_role', role);
+  }, [role]);
 
   return (
     <RoleContext.Provider value={{ role, setRole }}>

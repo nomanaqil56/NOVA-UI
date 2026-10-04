@@ -97,7 +97,7 @@ const StatCard = ({ title, value, icon: Icon, trend, alert, action }: any) => (
     </div>
     <div className="text-3xl font-light">{value}</div>
     {trend && <div className="text-xs mt-2 text-green-500">{trend} this week</div>}
-    {action && <div className="text-xs mt-2 text-accent font-semibold flex items-center gap-1 cursor-pointer">{action} <ArrowUpRight className="w-3 h-3"/></div>}
+    {action && <div className="text-xs mt-2 text-accent font-semibold flex items-center gap-1 cursor-not-allowed opacity-50">{action} <ArrowUpRight className="w-3 h-3"/></div>}
   </div>
 );
 
@@ -135,7 +135,7 @@ const UserRow = ({ name, email, role, status }: any) => (
       </div>
     </td>
     <td className="py-4 text-right">
-      <button className="text-xs font-semibold text-accent hover:text-accent/80 transition-colors">Manage</button>
+      <button disabled className="text-xs font-semibold text-accent opacity-50 cursor-not-allowed transition-colors">Manage</button>
     </td>
   </tr>
 );

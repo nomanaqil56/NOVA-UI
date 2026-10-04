@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Map as MapLibreMap, setWorkerUrl, Marker, LngLatBounds, GeoJSONSource, AttributionControl } from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Compass, LocateFixed, RefreshCw, AlertTriangle, Bug } from 'lucide-react';
+import { Compass, LocateFixed, RefreshCw, AlertTriangle, Bug, MapPin } from 'lucide-react';
 import type { GPSLocation, RouteOption } from '../../types/navigation';
 import { cn } from '../../lib/utils';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -60,6 +60,11 @@ interface MapComponentProps {
   isFollowing: boolean;
   setIsFollowing: (follow: boolean) => void;
   tripActive: boolean;
+  pickedLocation?: { lat: number; lon: number; name?: string } | null;
+  is3D?: boolean;
+  setIs3D?: (val: boolean) => void;
+  triggerOverview?: number;
+  onMapClick?: (lat: number, lon: number, featureName?: string) => void;
 }
 
 type CameraMode = 'INITIALIZING' | 'GPS_ACQUIRE' | 'NORMAL' | 'ROUTE_PREVIEW' | 'NAVIGATION' | 'USER_EXPLORE';
@@ -70,7 +75,12 @@ export const MapComponent = ({
   activeRoute,
   isFollowing,
   setIsFollowing,
-  tripActive
+  tripActive,
+  onMapClick,
+  pickedLocation,
+  is3D = false,
+  setIs3D,
+  triggerOverview = 0
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -81,9 +91,14 @@ export const MapComponent = ({
   const cameraTransitionUntil = useRef<number>(0);
   const prevTripActive = useRef(tripActive);
   const latestLocation = useRef(currentLocation);
-  latestLocation.current = currentLocation;
+  useEffect(() => {
+    latestLocation.current = currentLocation;
+  }, [currentLocation]);
 
-  const [is3D, setIs3D] = useState(false);
+  const [internalIs3D, setInternalIs3D] = useState(false);
+  const actualIs3D = setIs3D ? is3D : internalIs3D;
+  const setActualIs3D = setIs3D || setInternalIs3D;
+
   const [mapStatus, setMapStatus] = useState<'INITIALIZING' | 'LOADING' | 'READY' | 'ERROR'>('INITIALIZING');
   const [diagnostics, setDiagnostics] = useState({
     style: 'WAITING',
@@ -119,7 +134,7 @@ export const MapComponent = ({
         pitch: 0,
         attributionControl: false,
       });
-      map.addControl(new AttributionControl({ compact: true }), 'bottom-left');
+      map.addControl(new AttributionControl({ compact: true }), 'top-right');
 
       mapRef.current = map;
 
@@ -149,7 +164,7 @@ export const MapComponent = ({
       map.on('sourcedata', (e) => {
         if (e.isSourceLoaded) {
           const sourceCount = Object.keys(map.getStyle().sources || {}).length;
-          setDiagnostics(d => ({ ...d, tiles: 'RECEIVED', sources: sourceCount }));
+          setDiagnostics(d => ({ ...d, sources: sourceCount }));
         }
       });
 
@@ -159,12 +174,30 @@ export const MapComponent = ({
       
       map.on('idle', () => {
         setMapStatus('READY');
+        setDiagnostics(d => ({ ...d, tiles: 'READY' }));
       });
 
       map.on('dragstart', () => {
         if (cameraMode.current !== 'INITIALIZING' && cameraMode.current !== 'GPS_ACQUIRE') {
           cameraMode.current = 'USER_EXPLORE';
           setIsFollowing(false);
+        }
+      });
+
+      map.on('click', (e) => {
+        if (cameraMode.current === 'INITIALIZING' || cameraMode.current === 'GPS_ACQUIRE') return;
+        
+        const features = map.queryRenderedFeatures(e.point);
+        let featureName;
+        for (const f of features) {
+          if (f.properties && f.properties.name) {
+            featureName = f.properties.name;
+            break;
+          }
+        }
+        
+        if (onMapClick) {
+          onMapClick(e.lngLat.lat, e.lngLat.lng, featureName);
         }
       });
 
@@ -190,6 +223,10 @@ export const MapComponent = ({
     return () => {
       resizeObserver.disconnect();
       if (mapRef.current) {
+        if (vehicleMarkerRef.current) vehicleMarkerRef.current.remove();
+        if (destinationMarkerRef.current) destinationMarkerRef.current.remove();
+        vehicleMarkerRef.current = null;
+        destinationMarkerRef.current = null;
         mapRef.current.remove();
         mapRef.current = null;
       }
@@ -341,14 +378,14 @@ export const MapComponent = ({
       
       if (cameraMode.current === 'NAVIGATION' && heading !== null) {
         map.setBearing(heading);
-      } else if (cameraMode.current === 'NORMAL' && !is3D) {
+      } else if (cameraMode.current === 'NORMAL' && !actualIs3D) {
         map.setBearing(0);
       }
       
-      map.setPitch(cameraMode.current === 'NAVIGATION' ? 55 : (is3D ? 60 : 0));
+      map.setPitch(cameraMode.current === 'NAVIGATION' ? 55 : (actualIs3D ? 60 : 0));
       map.setPadding(cameraMode.current === 'NAVIGATION' ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 });
     }
-  }, [mapStatus, tripActive, is3D]);
+  }, [mapStatus, tripActive, actualIs3D]);
 
   useNavigationEngine(currentLocation, updateVisuals);
 
@@ -357,7 +394,9 @@ export const MapComponent = ({
     if (!mapRef.current || mapStatus !== 'READY') return;
     const map = mapRef.current;
 
-    if (destination) {
+    const targetLoc = destination || pickedLocation;
+
+    if (targetLoc) {
       if (!destinationMarkerRef.current) {
         const el = document.createElement('div');
         el.className = 'destination-marker-wrapper relative';
@@ -368,14 +407,14 @@ export const MapComponent = ({
           </div>
         `;
         destinationMarkerRef.current = new Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([destination.lon, destination.lat])
+          .setLngLat([targetLoc.lon, targetLoc.lat])
           .addTo(map);
         const nameEl = el.querySelector('.destination-name-label');
-        if (nameEl) nameEl.textContent = destination.name;
+        if (nameEl) nameEl.textContent = targetLoc.name || '';
       } else {
-        destinationMarkerRef.current.setLngLat([destination.lon, destination.lat]);
+        destinationMarkerRef.current.setLngLat([targetLoc.lon, targetLoc.lat]);
         const nameEl = destinationMarkerRef.current.getElement().querySelector('.destination-name-label');
-        if (nameEl) nameEl.textContent = destination.name;
+        if (nameEl) nameEl.textContent = targetLoc.name || '';
       }
     } else {
       if (destinationMarkerRef.current) {
@@ -383,7 +422,7 @@ export const MapComponent = ({
         destinationMarkerRef.current = null;
       }
     }
-  }, [destination, mapStatus]);
+  }, [destination, pickedLocation, mapStatus]);
 
   // Handle explicit Trip Active state transitions
   useEffect(() => {
@@ -431,18 +470,33 @@ export const MapComponent = ({
     
     mapRef.current.easeTo({
       center: [loc.longitude, loc.latitude],
-      pitch: tripActive ? 55 : (is3D ? 60 : 0),
+      pitch: tripActive ? 55 : (actualIs3D ? 60 : 0),
       bearing: tripActive ? (loc.heading || mapRef.current.getBearing()) : 0,
       padding: tripActive ? { bottom: 250, top: 0, left: 0, right: 0 } : { bottom: 0, top: 0, left: 0, right: 0 },
       zoom: 15.5,
       duration: 1500
     });
-  }, [tripActive, is3D, setIsFollowing]);
+  }, [tripActive, actualIs3D, setIsFollowing]);
+
+  useEffect(() => {
+    if (triggerOverview > 0 && mapRef.current && activeRoute) {
+      cameraMode.current = 'USER_EXPLORE';
+      setIsFollowing(false);
+      const bounds = new LngLatBounds();
+      activeRoute.geometry.coordinates.forEach(coord => {
+        bounds.extend(coord as [number, number]);
+      });
+      mapRef.current.fitBounds(bounds, {
+        padding: { top: 150, bottom: 250, left: 450, right: 100 },
+        duration: 1500
+      });
+    }
+  }, [triggerOverview, activeRoute, setIsFollowing]);
 
   const toggle3D = () => {
     if (!mapRef.current) return;
-    const newPitch = is3D ? 0 : 60;
-    setIs3D(!is3D);
+    const newPitch = actualIs3D ? 0 : 60;
+    setActualIs3D(!actualIs3D);
     mapRef.current.easeTo({ pitch: newPitch, duration: 1000 });
   };
 
@@ -504,9 +558,19 @@ export const MapComponent = ({
             <LocateFixed className="w-4 h-4" /> RE-CENTER
           </button>
         )}
+        <div className="group relative">
+          <button 
+            className="w-12 h-12 rounded-full glass-panel flex items-center justify-center transition-all shadow-lg text-primary hover:text-accent opacity-50 hover:opacity-100"
+          >
+            <MapPin className="w-5 h-5" />
+          </button>
+          <div className="absolute right-14 top-1/2 -translate-y-1/2 whitespace-nowrap bg-surface-elevated px-3 py-1.5 rounded-lg text-xs font-bold text-primary-muted opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-border">
+            TAP MAP TO PICK DESTINATION
+          </div>
+        </div>
         <button 
           onClick={toggle3D}
-          className={cn("w-12 h-12 rounded-full glass-panel flex items-center justify-center transition-all shadow-lg", is3D ? "text-accent border-accent/50 bg-accent/10" : "text-primary hover:text-accent")}
+          className={cn("w-12 h-12 rounded-full glass-panel flex items-center justify-center transition-all shadow-lg", actualIs3D ? "text-accent border-accent/50 bg-accent/10" : "text-primary hover:text-accent")}
         >
           <Compass className="w-6 h-6" />
         </button>

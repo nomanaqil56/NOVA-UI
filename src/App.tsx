@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { DriverDashboard } from './pages/driver/DriverDashboard';
+import { NavigationPage } from './pages/driver/NavigationPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
@@ -32,8 +33,10 @@ function App() {
         <Route index element={getRootRedirect()} />
         
         <Route path="driver">
-          <Route index element={<DriverDashboard />} />
-          <Route path="nav" element={<PlaceholderPage title="Navigation" />} />
+          <Route element={<DriverDashboard />}>
+            <Route index element={null} />
+            <Route path="nav" element={<NavigationPage />} />
+          </Route>
           <Route path="vehicle" element={<PlaceholderPage title="Vehicle" />} />
           <Route path="trips" element={<PlaceholderPage title="Trips" />} />
           <Route path="alerts" element={<PlaceholderPage title="Alerts" />} />
