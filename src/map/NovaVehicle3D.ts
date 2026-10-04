@@ -13,6 +13,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private camera = new THREE.Camera();
     private renderer: THREE.WebGLRenderer | null = null;
     private modelGroup = new THREE.Group();
+    private vehicleRoot: THREE.Group | null = null;
     private fallbackRoot: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
 
@@ -20,6 +21,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private currentHeading = 0;
     private visualHeading = 0;
     private currentAltitude = 0;
+    private modelReady = false;
 
     public navState = 'IDLE';
     public status: 'LOADING' | 'GLB' | 'PROCEDURAL_FALLBACK' | 'ERROR' = 'LOADING';
@@ -170,7 +172,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                 root.add(source);
                 root.scale.setScalar(normalizedScale);
 
+                this.vehicleRoot = root;
                 this.modelGroup.add(root);
+                this.modelReady = true;
                 this.status = 'GLB';
 
                 if (this.fallbackRoot) {
@@ -189,6 +193,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             },
             (error) => {
                 console.error('[NOVA 3D] GLB LOAD FAILED', error);
+                this.modelReady = false;
                 this.status = 'PROCEDURAL_FALLBACK';
                 if (this.fallbackRoot) this.fallbackRoot.visible = true;
                 if (this.map) this.map.triggerRepaint();
@@ -243,32 +248,29 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     private getZoomVisualMultiplier(zoom: number): number {
-        // Continuous smooth interpolation between precise visual multiplier control points
         const controlPoints: [number, number][] = [
             [18, 1.0],
-            [17, 1.9],
-            [16, 3.6],
-            [15, 6.8],
-            [14, 13.0],
-            [13, 24.7],
-            [12, 47.0],
-            [11, 89.3],
-            [10, 169.8],
-            [9, 322.6],
-            [8, 613.1]
+            [17, 1.8],
+            [16, 3.5],
+            [15, 7.0],
+            [14, 15.0],
+            [13, 35.0],
+            [12, 80.0],
+            [11, 180.0],
+            [10, 400.0],
+            [9, 900.0],
+            [8, 2000.0]
         ];
 
         if (zoom >= 18) return 1.00;
-        if (zoom <= 8) return 613.1;
+        if (zoom <= 8) return 2000.0;
 
         for (let i = 0; i < controlPoints.length - 1; i++) {
-            const [z1, v1] = controlPoints[i]; // Higher zoom
-            const [z2, v2] = controlPoints[i + 1]; // Lower zoom
+            const [z1, v1] = controlPoints[i];
+            const [z2, v2] = controlPoints[i + 1];
             
             if (zoom <= z1 && zoom > z2) {
-                // Fraction from z1 towards z2
                 const t = (z1 - zoom) / (z1 - z2);
-                // Smoothstep interpolation for a continuous derivative curve
                 const smooth_t = t * t * (3 - 2 * t);
                 return v1 + (v2 - v1) * smooth_t;
             }
@@ -276,8 +278,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         
         return 1.0;
     }
-
-    private lastLogTime = 0;
 
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
@@ -294,41 +294,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const matrix = input.defaultProjectionData.mainMatrix;
         if (!matrix || matrix.length !== 16) return;
 
-        const zoom = this.map.getZoom();
-        const meterScale = mercator.meterInMercatorCoordinateUnits();
-        const visualMultiplier = this.getZoomVisualMultiplier(zoom);
-        const finalScale = meterScale * visualMultiplier;
-
-        if (performance.now() - this.lastLogTime > 2000) {
-            this.lastLogTime = performance.now();
-            let rootScaleStr = 'N/A';
-            let sourcePosStr = 'N/A';
-            
-            if (this.modelGroup.children.length > 0) {
-                // Find the GLB root (should be the last child added after underglow and fallback)
-                const root = this.modelGroup.children.find(c => c.type === 'Group' && c.children.length > 0 && c !== this.fallbackRoot);
-                if (root) {
-                    rootScaleStr = root.scale.toArray().map(v => v.toFixed(6)).join(', ');
-                    const source = root.children[0];
-                    if (source) {
-                        sourcePosStr = source.position.toArray().map(v => v.toFixed(6)).join(', ');
-                    }
-                }
-            }
-
-            console.log(
-                `[NOVA 3D DIAGNOSTICS]\n` +
-                `Vehicle Status: ${this.status}\n` +
-                `GPS: ${this.currentLocation.lng.toFixed(6)}, ${this.currentLocation.lat.toFixed(6)}\n` +
-                `Mercator: X:${mercator.x.toFixed(6)} Y:${mercator.y.toFixed(6)} Z:${mercator.z.toFixed(6)}\n` +
-                `Map Zoom: ${zoom.toFixed(4)}\n` +
-                `Meter Scale: ${meterScale.toExponential(4)}\n` +
-                `Visual Multiplier: ${visualMultiplier.toFixed(4)}\n` +
-                `Final Scale: ${finalScale.toExponential(4)}\n` +
-                `GLB Root Scale: ${rootScaleStr}\n` +
-                `GLB Source Pos: ${sourcePosStr}\n`
-            );
-        }
+        const baseScale = mercator.meterInMercatorCoordinateUnits();
+        const visualMultiplier = this.getZoomVisualMultiplier(this.map.getZoom());
+        const finalScale = baseScale * visualMultiplier;
 
         // GLB uses Z-up and Y-forward. MapLibre's mercator custom-layer
         // transform uses +X east, -Y north, +Z up.
