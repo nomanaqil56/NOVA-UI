@@ -85,6 +85,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
   const offRouteCount = useRef(0);
   const lastValidLocation = useRef<GPSLocation | null>(null);
   const gpsSessionRef = useRef(0);
+  const hasAcquiredInitialGPSRef = useRef(false);
   
   // Use a ref for the active route so demo GPS can access it without restarting the GPS watcher
   const activeRouteRef = useRef<RouteOption | null>(null);
@@ -105,11 +106,17 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     }
     lastValidLocation.current = loc;
     setCurrentLocation(loc);
+
+    if (!hasAcquiredInitialGPSRef.current) {
+      hasAcquiredInitialGPSRef.current = true;
+      setCameraMode('GPS_ACQUIRE');
+    }
   }, []);
 
   useEffect(() => {
     lastValidLocation.current = null;
     setCurrentLocation(null);
+    hasAcquiredInitialGPSRef.current = false; // Reset on demo toggle
     const sessionId = ++gpsSessionRef.current;
     
     startGPS(

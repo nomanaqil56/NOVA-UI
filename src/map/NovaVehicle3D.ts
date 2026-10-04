@@ -18,7 +18,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private proceduralModel: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
     
-    private currentLocation = { lng: 0, lat: 0 };
+    private currentLocation: { lng: number, lat: number } | null = null;
     private currentHeading = 0;
     private visualHeading = 0;
     private currentAltitude = 0;
@@ -195,7 +195,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
-        if (!this.renderer || !this.map) return;
+        if (!this.renderer || !this.map || !this.currentLocation) return;
 
         // Smooth visual heading towards current target
         const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);

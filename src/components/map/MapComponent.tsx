@@ -209,23 +209,32 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
     } else if (cameraMode === 'GPS_ACQUIRE' && loc) {
       if (lastHandledCameraMode.current === 'GPS_ACQUIRE') return; // Prevent repeated triggers
       lastHandledCameraMode.current = cameraMode;
-      cameraTransitionUntil.current = performance.now() + 4000;
-      map.flyTo({ center: [loc.longitude, loc.latitude], zoom: 10, pitch: 0, bearing: 0, duration: 2000, essential: true });
+      
+      // Update vehicle position immediately so it is visible during camera transition
+      if (vehicle3DRef.current) {
+        vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
+        if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
+      }
+
+      cameraTransitionUntil.current = performance.now() + 2500;
+      
+      // Snap map center to GPS location immediately to prevent flying across the world
+      map.setCenter([loc.longitude, loc.latitude]);
+
+      // Smoothly zoom in to the vehicle
+      map.flyTo({ 
+        center: [loc.longitude, loc.latitude], 
+        zoom: 16, 
+        pitch: is3D ? 60 : 0, 
+        bearing: 0, 
+        duration: 2000, 
+        essential: true 
+      });
+
       map.once('moveend', () => {
-        if (!mapRef.current) return;
-        const triggerFinalZoom = () => {
-          if (cameraModeRef.current === 'GPS_ACQUIRE' && mapRef.current && currentLocationRef.current) {
-            const finalLoc = currentLocationRef.current;
-            mapRef.current.flyTo({ center: [finalLoc.longitude, finalLoc.latitude], zoom: 16.5, duration: 2000, essential: true });
-            mapRef.current.once('moveend', () => {
-              if (cameraModeRef.current === 'GPS_ACQUIRE') {
-                setCameraMode('OVERVIEW');
-              }
-            });
-          }
-        };
-        if (mapRef.current.areTilesLoaded()) triggerFinalZoom();
-        else mapRef.current.once('idle', triggerFinalZoom);
+        if (cameraModeRef.current === 'GPS_ACQUIRE') {
+          setCameraMode('OVERVIEW');
+        }
       });
     }
   }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode, currentLocation]); 
