@@ -13,7 +13,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private camera = new THREE.Camera();
     private renderer: THREE.WebGLRenderer | null = null;
     private modelGroup = new THREE.Group();
-    private vehicleRoot: THREE.Group | null = null;
     private fallbackRoot: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
 
@@ -21,7 +20,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private currentHeading = 0;
     private visualHeading = 0;
     private currentAltitude = 0;
-    private modelReady = false;
 
     public navState = 'IDLE';
     public status: 'LOADING' | 'GLB' | 'PROCEDURAL_FALLBACK' | 'ERROR' = 'LOADING';
@@ -172,9 +170,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                 root.add(source);
                 root.scale.setScalar(normalizedScale);
 
-                this.vehicleRoot = root;
                 this.modelGroup.add(root);
-                this.modelReady = true;
                 this.status = 'GLB';
 
                 if (this.fallbackRoot) {
@@ -193,7 +189,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             },
             (error) => {
                 console.error('[NOVA 3D] GLB LOAD FAILED', error);
-                this.modelReady = false;
                 this.status = 'PROCEDURAL_FALLBACK';
                 if (this.fallbackRoot) this.fallbackRoot.visible = true;
                 if (this.map) this.map.triggerRepaint();
@@ -247,6 +242,43 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         return diff;
     }
 
+    private getZoomVisualMultiplier(zoom: number): number {
+        // Continuous smooth interpolation between precise visual multiplier control points
+        const controlPoints: [number, number][] = [
+            [18, 1.00],
+            [17, 1.03],
+            [16, 1.08],
+            [15, 1.15],
+            [14, 1.28],
+            [13, 1.45],
+            [12, 1.65],
+            [11, 1.90],
+            [10, 2.20],
+            [9, 2.55],
+            [8, 2.90]
+        ];
+
+        if (zoom >= 18) return 1.00;
+        if (zoom <= 8) return 2.90;
+
+        for (let i = 0; i < controlPoints.length - 1; i++) {
+            const [z1, v1] = controlPoints[i]; // Higher zoom
+            const [z2, v2] = controlPoints[i + 1]; // Lower zoom
+            
+            if (zoom <= z1 && zoom > z2) {
+                // Fraction from z1 towards z2
+                const t = (z1 - zoom) / (z1 - z2);
+                // Smoothstep interpolation for a continuous derivative curve
+                const smooth_t = t * t * (3 - 2 * t);
+                return v1 + (v2 - v1) * smooth_t;
+            }
+        }
+        
+        return 1.0;
+    }
+
+    private lastLogTime = 0;
+
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
 
@@ -262,7 +294,22 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const matrix = input.defaultProjectionData.mainMatrix;
         if (!matrix || matrix.length !== 16) return;
 
-        const scale = mercator.meterInMercatorCoordinateUnits();
+        const zoom = this.map.getZoom();
+        const meterScale = mercator.meterInMercatorCoordinateUnits();
+        const visualMultiplier = this.getZoomVisualMultiplier(zoom);
+        const finalScale = meterScale * visualMultiplier;
+
+        if (performance.now() - this.lastLogTime > 1000) {
+            this.lastLogTime = performance.now();
+            console.log(
+                `[NOVA VEHICLE]\n` +
+                `Vehicle: GLB\n` +
+                `Zoom: ${zoom.toFixed(2)}\n` +
+                `Physical Scale: ${meterScale.toFixed(8)}\n` +
+                `Visual Multiplier: ${visualMultiplier.toFixed(2)}\n` +
+                `Final Scale: ${finalScale.toFixed(8)}\n`
+            );
+        }
 
         // GLB uses Z-up and Y-forward. MapLibre's mercator custom-layer
         // transform uses +X east, -Y north, +Z up.
@@ -274,7 +321,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const m = new THREE.Matrix4().fromArray(matrix);
         const l = new THREE.Matrix4()
             .makeTranslation(mercator.x, mercator.y, mercator.z)
-            .scale(new THREE.Vector3(scale, -scale, scale))
+            .scale(new THREE.Vector3(finalScale, -finalScale, finalScale))
             .multiply(rotationZ);
 
         this.camera.projectionMatrix = m.multiply(l);
