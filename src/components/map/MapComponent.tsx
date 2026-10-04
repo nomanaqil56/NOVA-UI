@@ -44,9 +44,11 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   const cameraTransitionUntil = useRef<number>(0);
   const cameraModeRef = useRef(cameraMode);
   const currentLocationRef = useRef(currentLocation);
+  const onMapClickRef = useRef(onMapClick);
 
   useEffect(() => { cameraModeRef.current = cameraMode; }, [cameraMode]);
   useEffect(() => { currentLocationRef.current = currentLocation; }, [currentLocation]);
+  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
   
   const [mapStatus, setMapStatus] = useState<'INITIALIZING' | 'LOADING' | 'READY' | 'ERROR'>('INITIALIZING');
   const [diagnostics, setDiagnostics] = useState({ style: 'WAITING', sources: 0, tiles: 'WAITING', errorCount: 0 });
@@ -95,6 +97,11 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         setDiagnostics(d => ({ ...d, style: 'READY' }));
         initializeRouteLayers(map);
         if (vehicle3DRef.current && !map.getLayer(vehicle3DRef.current.id)) {
+            const loc = currentLocationRef.current;
+            if (loc) {
+               vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
+               if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
+            }
             map.addLayer(vehicle3DRef.current as any);
         }
       });
@@ -120,12 +127,12 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         const features = map.queryRenderedFeatures(e.point);
         let featureName;
         for (const f of features) { if (f.properties && f.properties.name) { featureName = f.properties.name; break; } }
-        if (onMapClick) onMapClick(e.lngLat.lat, e.lngLat.lng, featureName);
+        if (onMapClickRef.current) onMapClickRef.current(e.lngLat.lat, e.lngLat.lng, featureName);
       });
     } catch {
       setMapStatus('ERROR');
     }
-  }, [onMapClick, setCameraMode]); // Notice cameraMode is deliberately omitted to prevent re-instantiation
+  }, [setCameraMode]); // Removed onMapClick to prevent re-instantiation
 
   useEffect(() => {
     initMap();
