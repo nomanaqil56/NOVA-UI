@@ -59,7 +59,7 @@ export const DestinationSearch = ({ currentLocation, onSelect }: DestinationSear
         
         setResults(res);
         setShowResults(true);
-      } catch (err) {
+      } catch {
         if (searchRequestId.current !== currentId) return;
         setError(true);
       } finally {

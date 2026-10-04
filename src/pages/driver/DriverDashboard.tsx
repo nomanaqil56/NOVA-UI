@@ -68,7 +68,7 @@ export const DriverDashboard = () => {
     try {
       const result = await reverseGeocode(lat, lon);
       setPickedLocation({ lat, lon, name: result.name, loading: false, result });
-    } catch (err) {
+    } catch {
       setPickedLocation({ lat, lon, name: 'Selected Location', loading: false, result: {
         placeId: `${lat},${lon}`,
         name: 'Selected Location',

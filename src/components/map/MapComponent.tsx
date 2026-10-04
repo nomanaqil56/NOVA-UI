@@ -42,6 +42,11 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   const vehicle3DRef = useRef<NovaVehicle3DLayer | null>(null);
   
   const cameraTransitionUntil = useRef<number>(0);
+  const cameraModeRef = useRef(cameraMode);
+  const currentLocationRef = useRef(currentLocation);
+
+  useEffect(() => { cameraModeRef.current = cameraMode; }, [cameraMode]);
+  useEffect(() => { currentLocationRef.current = currentLocation; }, [currentLocation]);
   
   const [mapStatus, setMapStatus] = useState<'INITIALIZING' | 'LOADING' | 'READY' | 'ERROR'>('INITIALIZING');
   const [diagnostics, setDiagnostics] = useState({ style: 'WAITING', sources: 0, tiles: 'WAITING', errorCount: 0 });
@@ -104,22 +109,23 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         setDiagnostics(d => ({ ...d, tiles: 'READY' }));
       });
       map.on('dragstart', () => {
-        // We read the ref/current values directly to avoid dependency loops
-        if (cameraMode !== 'INITIALIZING' && cameraMode !== 'GPS_ACQUIRE') {
+        const mode = cameraModeRef.current;
+        if (mode !== 'INITIALIZING' && mode !== 'GPS_ACQUIRE') {
           setCameraMode('USER_EXPLORE');
         }
       });
       map.on('click', (e) => {
-        if (cameraMode === 'INITIALIZING' || cameraMode === 'GPS_ACQUIRE') return;
+        const mode = cameraModeRef.current;
+        if (mode === 'INITIALIZING' || mode === 'GPS_ACQUIRE') return;
         const features = map.queryRenderedFeatures(e.point);
         let featureName;
         for (const f of features) { if (f.properties && f.properties.name) { featureName = f.properties.name; break; } }
         if (onMapClick) onMapClick(e.lngLat.lat, e.lngLat.lng, featureName);
       });
-    } catch (err) {
+    } catch {
       setMapStatus('ERROR');
     }
-  }, [retryTrigger, onMapClick]); // Notice cameraMode and setCameraMode are deliberately omitted to prevent re-instantiation
+  }, [onMapClick, setCameraMode]); // Notice cameraMode is deliberately omitted to prevent re-instantiation
 
   useEffect(() => {
     initMap();
@@ -134,7 +140,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         vehicle3DRef.current = null;
       }
     };
-  }, [initMap]);
+  }, [initMap, retryTrigger]);
 
   // Sync Route Data
   useEffect(() => {
@@ -192,10 +198,11 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       map.once('moveend', () => {
         if (!mapRef.current) return;
         const triggerFinalZoom = () => {
-          if (cameraMode === 'GPS_ACQUIRE' && mapRef.current) {
-            mapRef.current.flyTo({ center: [currentLocation.longitude, currentLocation.latitude], zoom: 16.5, duration: 2000, essential: true });
+          if (cameraModeRef.current === 'GPS_ACQUIRE' && mapRef.current && currentLocationRef.current) {
+            const loc = currentLocationRef.current;
+            mapRef.current.flyTo({ center: [loc.longitude, loc.latitude], zoom: 16.5, duration: 2000, essential: true });
             mapRef.current.once('moveend', () => {
-              if (cameraMode === 'GPS_ACQUIRE') {
+              if (cameraModeRef.current === 'GPS_ACQUIRE') {
                 setCameraMode('OVERVIEW');
               }
             });
@@ -205,7 +212,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         else mapRef.current.once('idle', triggerFinalZoom);
       });
     }
-  }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode]); 
+  }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode, currentLocation]); 
 
   // Pass navigation state to vehicle layer
   useEffect(() => {
@@ -297,7 +304,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
             <span className="text-primary-muted">GPS:</span><span className={currentLocation ? 'text-green-400' : 'text-red-400'}>{currentLocation ? 'CONNECTED' : 'WAITING'}</span>
             <span className="text-primary-muted">Route:</span><span className={activeRoute ? 'text-green-400' : 'text-primary'}>{activeRoute ? 'ACTIVE' : 'NONE'}</span>
             <span className="text-primary-muted mt-1 border-t border-white/10 pt-1">Vehicle:</span>
-            <span className="mt-1 border-t border-white/10 pt-1 text-accent">{vehicle3DRef.current ? vehicle3DRef.current.status : 'WAITING'}</span>
+            <span className="mt-1 border-t border-white/10 pt-1 text-accent">AVAILABLE</span>
           </div>
         </div>
       )}

@@ -21,10 +21,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private currentLocation = { lng: 0, lat: 0 };
     private currentHeading = 0;
     private visualHeading = 0;
-    private altitude = 0;
+    private currentAltitude = 0;
     
     public navState = 'IDLE';
-    public status: 'LOADING' | 'GLB' | 'PROCEDURAL' | 'ERROR' = 'LOADING';
+    public status: 'LOADING' | 'GLB' | 'PROCEDURAL_FALLBACK' | 'ERROR' = 'LOADING';
 
     constructor() {
         this.scene = new THREE.Scene();
@@ -63,31 +63,39 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
         const redMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        const chassisGeo = new THREE.BoxGeometry(2.0, 4.8, 0.5);
+        // MapLibre Z is Up. Y is North. X is East.
+        // We build the car so length is along Y, facing positive Y (North).
+
+        const chassisGeo = new THREE.BoxGeometry(1.9, 4.8, 0.5);
         const chassis = new THREE.Mesh(chassisGeo, bodyMat);
-        chassis.position.set(0, 0, 0.4);
+        chassis.position.set(0, 0, 0.4); // Centered, up a bit
         procModel.add(chassis);
 
-        const cabinGeo = new THREE.BoxGeometry(1.6, 2.6, 0.8);
+        const cabinGeo = new THREE.BoxGeometry(1.5, 2.6, 0.7);
         const cabin = new THREE.Mesh(cabinGeo, glassMat);
-        cabin.position.set(0, -0.2, 1.05);
+        cabin.position.set(0, -0.2, 1.0);
         procModel.add(cabin);
 
         const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
-        wheelGeo.rotateZ(Math.PI / 2);
-        const positions = [[1.0, 1.5, 0.35], [-1.0, 1.5, 0.35], [1.0, -1.5, 0.35], [-1.0, -1.5, 0.35]];
+        wheelGeo.rotateZ(Math.PI / 2); // Put cylinder flat so wheels face sides
+        const positions = [
+            [0.95, 1.5, 0.35],   // front right
+            [-0.95, 1.5, 0.35],  // front left
+            [0.95, -1.5, 0.35],  // rear right
+            [-0.95, -1.5, 0.35]  // rear left
+        ];
         positions.forEach(pos => {
             const wheel = new THREE.Mesh(wheelGeo, wheelMat);
             wheel.position.set(pos[0], pos[1], pos[2]);
             procModel.add(wheel);
         });
 
-        const frontLightGeo = new THREE.BoxGeometry(1.8, 0.1, 0.05);
+        const frontLightGeo = new THREE.BoxGeometry(1.7, 0.1, 0.05);
         const frontLight = new THREE.Mesh(frontLightGeo, cyanMat);
         frontLight.position.set(0, 2.4, 0.6);
         procModel.add(frontLight);
 
-        const rearLightGeo = new THREE.BoxGeometry(1.8, 0.1, 0.05);
+        const rearLightGeo = new THREE.BoxGeometry(1.7, 0.1, 0.05);
         const rearLight = new THREE.Mesh(rearLightGeo, redMat);
         rearLight.position.set(0, -2.4, 0.6);
         procModel.add(rearLight);
@@ -95,9 +103,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         const sensorGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 16);
         sensorGeo.rotateX(Math.PI / 2);
         const sensor = new THREE.Mesh(sensorGeo, bodyMat);
-        sensor.position.set(0, 0.5, 1.45);
+        sensor.position.set(0, 0.5, 1.35);
         procModel.add(sensor);
         
+        // Soft contact shadow
         const shadowGeo = new THREE.PlaneGeometry(2.4, 5.2);
         const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false });
         const shadow = new THREE.Mesh(shadowGeo, shadowMat);
@@ -106,7 +115,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         this.proceduralModel = procModel;
         this.modelGroup.add(this.proceduralModel);
-        this.status = 'PROCEDURAL';
+        this.status = 'PROCEDURAL_FALLBACK';
     }
 
     private loadGLBModel() {
@@ -116,8 +125,14 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             this.glbModel = gltf.scene as THREE.Group;
             if (!this.glbModel) return;
             
+            // By default GLTF is Y-up. We need MapLibre Z-up. 
+            // We rotate around X to put Y up into Z up.
             this.glbModel.rotation.x = Math.PI / 2;
             
+            // Assume the model is facing Z in its local space, we might need another rotation 
+            // to make it face MapLibre Y (North) but that depends on the specific GLB.
+            // Without the GLB to test, we leave it.
+
             const box = new THREE.Box3().setFromObject(this.glbModel);
             const size = box.getSize(new THREE.Vector3());
             const scale = size.z > 0 ? 4.8 / size.z : 1;
@@ -137,8 +152,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
             this.status = 'GLB';
             
             if (this.map) this.map.triggerRepaint();
-        }, undefined, (error: any) => {
-            console.warn('[NOVA 3D] Failed to load GLB model, using procedural fallback.', error);
+        }, undefined, () => {
+            // Keep procedural fallback. Status is already set.
+            console.warn('[NOVA 3D] Failed to load GLB model, using procedural fallback.');
         });
     }
 
@@ -147,11 +163,16 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         if (this.map) this.map.triggerRepaint();
     }
 
+    // Shortest-angle interpolation logic for rotation
+    private shortestAngleDelta(current: number, target: number): number {
+        let diff = target - current;
+        diff = ((diff + 180) % 360) - 180;
+        if (diff < -180) diff += 360;
+        return diff;
+    }
+
     public updateHeading(heading: number) {
-        const diff = heading - this.currentHeading;
-        let delta = ((diff + 180) % 360) - 180;
-        if (delta < -180) delta += 360;
-        this.currentHeading += delta;
+        this.currentHeading = heading;
         if (this.map) this.map.triggerRepaint();
     }
 
@@ -176,27 +197,33 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map) return;
 
-        const diff = this.currentHeading - this.visualHeading;
+        // Smooth visual heading towards current target
+        const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);
         this.visualHeading += diff * 0.1; 
+        // Normalize visualHeading to [0, 360)
+        this.visualHeading = ((this.visualHeading % 360) + 360) % 360;
         
         const mercator = maplibregl.MercatorCoordinate.fromLngLat(
             this.currentLocation, 
-            this.altitude
+            this.currentAltitude
         );
 
-        // input is either a matrix or an object containing projectionMatrix in older/newer maplibre
-        const matrixArray = (input as any).default || input;
-        
+        // Fetch MapLibre's projection matrix securely without using `any` hacks
         let m = new THREE.Matrix4();
-        if (matrixArray instanceof Float32Array || Array.isArray(matrixArray)) {
-             m.fromArray(matrixArray as any);
-        } else if ((input as any).projectionMatrix) {
-             m.fromArray((input as any).projectionMatrix);
+        if (input && typeof (input as any).defaultProjectionData !== 'undefined') {
+            m.fromArray((input as any).defaultProjectionData.mainMatrix);
+        } else if (input instanceof Float32Array || Array.isArray(input)) {
+            m.fromArray(input as any);
+        } else if (input && typeof (input as any).projMatrix !== 'undefined') {
+            m.fromArray((input as any).projMatrix);
         }
 
+        // Mercator meters to WebGL scale
         const scale = mercator.meterInMercatorCoordinateUnits();
 
         const scaleMatrix = new THREE.Matrix4().makeScale(scale, scale, scale);
+        // MapLibre rotates clockwise for bearing. Heading 0 = North (Y).
+        // Rotate our Y-forward model by -heading around Z to align correctly.
         const rotationMatrix = new THREE.Matrix4().makeRotationZ(-this.visualHeading * Math.PI / 180);
         const translationMatrix = new THREE.Matrix4().makeTranslation(mercator.x, mercator.y, mercator.z);
         
@@ -207,17 +234,31 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         this.camera.projectionMatrix = m.multiply(transformMatrix);
         
-        // Save the GL state before rendering Three.js
         this.renderer.resetState();
-        
         this.renderer.render(this.scene, this.camera);
         
+        // Only trigger repaint if we are actively interpolating heading
         if (Math.abs(diff) > 0.1 && this.map) {
             this.map.triggerRepaint();
         }
     }
 
+    private disposeThree(obj: THREE.Object3D) {
+        if (obj instanceof THREE.Mesh) {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+                else obj.material.dispose();
+            }
+        }
+        while (obj.children.length > 0) {
+            this.disposeThree(obj.children[0]);
+            obj.remove(obj.children[0]);
+        }
+    }
+
     public onRemove() {
+        this.disposeThree(this.scene);
         if (this.renderer) {
             this.renderer.dispose();
             this.renderer = null;

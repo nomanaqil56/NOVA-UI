@@ -45,16 +45,24 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 };
 
-const getDistanceToSegment = (lat: number, lon: number, lat1: number, lon1: number, lat2: number, lon2: number) => {
+const getProjectedPointOnSegment = (lat: number, lon: number, lat1: number, lon1: number, lat2: number, lon2: number) => {
   const x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
   const y = lat2 - lat1;
   const d2 = x * x + y * y;
+  if (d2 === 0) return { projLat: lat1, projLon: lon1 };
+  
   const x0 = (lon - lon1) * Math.cos((lat1 + lat) / 2 * Math.PI / 180);
   const y0 = lat - lat1;
-  if (d2 === 0) return getDistance(lat, lon, lat1, lon1);
   const t = Math.max(0, Math.min(1, (x0 * x + y0 * y) / d2));
-  const projLon = lon1 + t * (lon2 - lon1);
-  const projLat = lat1 + t * (lat2 - lat1);
+  
+  return {
+    projLon: lon1 + t * (lon2 - lon1),
+    projLat: lat1 + t * (lat2 - lat1)
+  };
+};
+
+const getDistanceToSegment = (lat: number, lon: number, lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const { projLat, projLon } = getProjectedPointOnSegment(lat, lon, lat1, lon1, lat2, lon2);
   return getDistance(lat, lon, projLat, projLon);
 };
 
@@ -121,7 +129,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
         setRoutes([]);
         setNavState('ERROR');
       }
-    } catch (err) {
+    } catch {
       if (routeRequestId.current === currentId) setNavState('ERROR');
     }
   };
@@ -208,8 +216,17 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
       offRouteCount.current = 0;
     }
 
-    let remainingDist = 0;
-    for (let i = closestIdx; i < coords.length - 1; i++) {
+    const { projLat, projLon } = getProjectedPointOnSegment(
+      currentLocation.latitude, currentLocation.longitude,
+      coords[closestIdx][1], coords[closestIdx][0],
+      coords[closestIdx+1][1], coords[closestIdx+1][0]
+    );
+
+    // Distance from vehicle to projection + distance from projection to end of current segment
+    let remainingDist = getDistance(currentLocation.latitude, currentLocation.longitude, projLat, projLon)
+                      + getDistance(projLat, projLon, coords[closestIdx+1][1], coords[closestIdx+1][0]);
+
+    for (let i = closestIdx + 1; i < coords.length - 1; i++) {
       remainingDist += getDistance(coords[i][1], coords[i][0], coords[i+1][1], coords[i+1][0]);
     }
 
@@ -227,7 +244,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
         distanceToNextManeuver: 0
       });
     }
-  }, [currentLocation, activeRouteIdState, navState]);
+  }, [currentLocation, activeRouteIdState, navState, destination, routes, finishTrip]);
 
   const activeRoute = routes.find(r => r.id === activeRouteIdState) || null;
 

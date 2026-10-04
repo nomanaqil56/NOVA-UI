@@ -44,7 +44,7 @@ export const NavigationPage = () => {
       if (rd) setRecentDestinations(JSON.parse(rd));
       const pref = localStorage.getItem('nova_nav_preferences');
       if (pref) setPreferences(JSON.parse(pref));
-    } catch(e) {}
+    } catch {}
   }, []);
 
   useEffect(() => { localStorage.setItem('nova_saved_places', JSON.stringify(savedPlaces)); }, [savedPlaces]);
