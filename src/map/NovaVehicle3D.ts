@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as maplibregl from 'maplibre-gl';
 import type { CustomLayerInterface, CustomRenderMethodInput } from 'maplibre-gl';
 
@@ -14,7 +14,8 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private renderer: THREE.WebGLRenderer | null = null;
     
     private modelGroup: THREE.Group;
-    // private glbModel: THREE.Group | null = null;
+    private glbModel: THREE.Group | null = null;
+    // private glbWrapper: THREE.Group | null = null;
     private proceduralModel: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
     
@@ -35,7 +36,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         console.log('[3D] CONSTRUCTOR');
         this.setupLighting();
         this.createProceduralFallback();
-        // this.loadGLBModel(); // Disabled for debugging
+        this.loadGLBModel();
         
         console.log('[3D] MODEL CHILDREN', this.modelGroup.children.length);
     }
@@ -60,88 +61,69 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private createProceduralFallback() {
         const procModel = new THREE.Group();
 
-        // TEMPORARY BASIC MATERIALS FOR DEBUGGING
-        const cyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: true, depthWrite: true });
-
-        // Temporarily make the vehicle much larger
-        // chassis: 8m long, 4m wide, 2m high
-        const chassisGeo = new THREE.BoxGeometry(4.0, 8.0, 2.0);
-        const chassis = new THREE.Mesh(chassisGeo, cyanMat);
-        chassis.position.set(0, 0, 1.0); // Centered, up a bit
+        // Simple basic fallback box
+        const fallbackMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: true, depthWrite: true });
+        const chassisGeo = new THREE.BoxGeometry(1.9, 4.8, 1.5);
+        const chassis = new THREE.Mesh(chassisGeo, fallbackMat);
+        chassis.position.set(0, 0, 0.75);
         procModel.add(chassis);
-
-        const cabinGeo = new THREE.BoxGeometry(3.0, 4.0, 1.0);
-        const cabin = new THREE.Mesh(cabinGeo, cyanMat);
-        cabin.position.set(0, -0.4, 2.5);
-        procModel.add(cabin);
-
-        const wheelGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.5, 16);
-        wheelGeo.rotateZ(Math.PI / 2); // Put cylinder flat so wheels face sides
-        const positions = [
-            [2.2, 2.5, 0.7],   // front right
-            [-2.2, 2.5, 0.7],  // front left
-            [2.2, -2.5, 0.7],  // rear right
-            [-2.2, -2.5, 0.7]  // rear left
-        ];
-        positions.forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, cyanMat);
-            wheel.position.set(pos[0], pos[1], pos[2]);
-            procModel.add(wheel);
-        });
-
-        // DEBUG SPHERE
-        const debugGeometry = new THREE.SphereGeometry(2.0, 16, 16);
-        const debugMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, depthTest: false, depthWrite: false });
-        const debugSphere = new THREE.Mesh(debugGeometry, debugMaterial);
-        debugSphere.position.set(0, 0, 5);
-        procModel.add(debugSphere);
 
         this.proceduralModel = procModel;
         this.modelGroup.add(this.proceduralModel);
         this.status = 'PROCEDURAL_FALLBACK';
     }
 
-    /*
     private loadGLBModel() {
         const loader = new GLTFLoader();
+        console.log('[NOVA 3D] Loading nova-car.glb');
         loader.load('/models/nova-car.glb', (gltf: any) => {
+            console.log('[NOVA 3D] GLB loaded');
             if (!gltf || !gltf.scene) return;
             this.glbModel = gltf.scene as THREE.Group;
             if (!this.glbModel) return;
-            
-            // By default GLTF is Y-up. We need MapLibre Z-up. 
-            // We rotate around X to put Y up into Z up.
-            this.glbModel.rotation.x = Math.PI / 2;
-            
-            // Assume the model is facing Z in its local space, we might need another rotation 
-            // to make it face MapLibre Y (North) but that depends on the specific GLB.
-            // Without the GLB to test, we leave it.
 
             const box = new THREE.Box3().setFromObject(this.glbModel);
             const size = box.getSize(new THREE.Vector3());
-            const scale = size.z > 0 ? 4.8 / size.z : 1;
-            this.glbModel.scale.set(scale, scale, scale);
+            const center = box.getCenter(new THREE.Vector3());
+            
+            console.log('[NOVA 3D] Model dimensions:', { x: size.x, y: size.y, z: size.z });
+            console.log('[NOVA 3D] Model center:', { x: center.x, y: center.y, z: center.z });
 
-            const shadowGeo = new THREE.PlaneGeometry(2.4, 5.2);
-            const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false });
-            const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-            shadow.position.set(0, 0, 0.01);
-            shadow.rotation.x = -Math.PI / 2;
-            this.glbModel.add(shadow);
+            // Create a wrapper to orient and scale the model correctly
+            const wrapper = new THREE.Group();
+            
+            // Center the model's geometry at origin on X and Z, but place bottom at Y=0
+            this.glbModel.position.set(-center.x, -box.min.y, -center.z);
+            wrapper.add(this.glbModel);
+
+            // By default GLTF is Y-up. MapLibre is Z-up.
+            // We rotate around X to put Y up into Z up.
+            wrapper.rotation.x = Math.PI / 2;
+
+            // Wait until we inspect the dimensions to apply proper scale.
+            // For now, assume it's roughly 1 unit = 1 meter and leave scale at 1, or apply a generic scale.
+            // Actually, let's just make it visible:
+            const maxDim = Math.max(size.x, size.y, size.z);
+            // If it's huge, scale it down to ~4.8m length
+            const scale = maxDim > 0 ? 4.8 / maxDim : 1;
+            wrapper.scale.set(scale, scale, scale);
+
+            // Lift to road level based on bounding box minimum Z (which becomes -Y before rotation, etc.)
+            // We'll fine-tune this after inspecting the logs.
 
             if (this.proceduralModel) {
                 this.modelGroup.remove(this.proceduralModel);
             }
-            this.modelGroup.add(this.glbModel);
+            this.modelGroup.add(wrapper);
+            // this.glbWrapper = wrapper;
             this.status = 'GLB';
+            console.log('[NOVA 3D] Model ready');
             
             if (this.map) this.map.triggerRepaint();
-        }, undefined, () => {
-            // Keep procedural fallback. Status is already set.
-            console.warn('[NOVA 3D] Failed to load GLB model, using procedural fallback.');
+        }, undefined, (err) => {
+            console.error('[NOVA 3D] Failed to load GLB model', err);
         });
     }
-    */
 
     public updatePosition(lng: number, lat: number) {
         console.log('[3D] POSITION', lng, lat);
