@@ -185,16 +185,28 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
 
-                // Verified asset convention: X=width, Y=length/forward, Z=up.
-                const vehicleLength = Math.max(size.y, 0.001);
+                // Actual GLB Native Axes: +X = Left, +Y = Up, +Z = Forward
+                // So width = X, height = Y, length = Z
+                const vehicleLength = Math.max(size.z, 0.001);
                 const normalizedScale = 4.9 / vehicleLength;
 
-                const root = new THREE.Group();
-                source.position.set(-center.x, -center.y, -box.min.z);
-                root.add(source);
-                root.scale.setScalar(normalizedScale);
+                const vehicleWorldRoot = new THREE.Group();
+                const vehicleOrientationRoot = new THREE.Group();
+                
+                // Ground the wheels (min Y) and center the chassis (center X and Z)
+                source.position.set(-center.x, -box.min.y, -center.z);
+                
+                vehicleOrientationRoot.add(source);
+                
+                // Apply fixed GLB orientation correction to map to MapLibre world space:
+                // MapLibre expects: +X = East (Right), +Y = North (Forward), +Z = Up
+                // Rotate X by 90 deg and Z by 180 deg to map (+X=Left, +Y=Up, +Z=Forward) -> (+X=Right, +Y=Forward, +Z=Up)
+                vehicleOrientationRoot.rotation.set(Math.PI / 2, 0, Math.PI, 'XYZ');
+                vehicleOrientationRoot.scale.setScalar(normalizedScale);
 
-                this.modelGroup.add(root);
+                vehicleWorldRoot.add(vehicleOrientationRoot);
+                this.modelGroup.add(vehicleWorldRoot);
+                
                 this.status = 'GLB';
 
                 if (this.fallbackRoot) {
