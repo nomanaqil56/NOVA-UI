@@ -23,7 +23,7 @@ export const DriverDashboard = () => {
 
   const [pickedLocation, setPickedLocation] = useState<{lat: number, lon: number, name?: string, loading: boolean, result?: any} | null>(null);
   const clickRequestId = useRef(0);
-  const { data, updateData, setConnectionMode } = useTelemetry();
+  const { data, updateData } = useTelemetry();
   
   // Vehicle Simulation State (Moved some to context, keep override state local or push to context)
   const [overrideState, setOverrideState] = useState<'AUTONOMOUS' | 'TAKING_CONTROL' | 'MANUAL'>(data.autonomousMode ? 'AUTONOMOUS' : 'MANUAL');
@@ -66,14 +66,7 @@ export const DriverDashboard = () => {
     return () => { if (holdTimer.current) clearInterval(holdTimer.current); };
   }, []);
 
-  useEffect(() => {
-    // Sync Navigation's isDemoMode with Telemetry's connectionMode
-    if (data.connectionMode === 'DEMO' && !isDemoMode) {
-      setIsDemoMode(true);
-    } else if (data.connectionMode === 'LIVE' && isDemoMode) {
-      setIsDemoMode(false);
-    }
-  }, [data.connectionMode, isDemoMode, setIsDemoMode]);
+
 
   const handleMapClick = async (lat: number, lon: number, featureName?: string) => {
     if (navState === 'NAVIGATING' || navState === 'RECALCULATING') return;
@@ -138,10 +131,7 @@ export const DriverDashboard = () => {
             <GPSStatus 
               gpsState={gpsState} 
               accuracy={currentLocation?.accuracy || null} 
-              onEnableGPS={() => {
-                const next = data.connectionMode === 'DEMO' ? 'LIVE' : 'DEMO';
-                setConnectionMode(next);
-              }} 
+              onEnableGPS={() => setIsDemoMode(!isDemoMode)} 
             />
             {navState === 'RECALCULATING' && (
               <div className="glass-panel px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-500 flex items-center gap-2 shadow-lg">
@@ -194,16 +184,13 @@ export const DriverDashboard = () => {
                 <div className="text-right flex flex-col items-end">
                   <div className="text-[10px] text-primary-muted mb-2 font-semibold uppercase tracking-wider">Mode</div>
                   <button 
-                    onClick={() => {
-                      const next = data.connectionMode === 'DEMO' ? 'LIVE' : 'DEMO';
-                      setConnectionMode(next);
-                    }} 
+                    onClick={() => setIsDemoMode(!isDemoMode)} 
                     className={cn(
                       "text-xs font-bold px-3 py-1 rounded-full border transition-colors", 
-                      data.connectionMode === 'DEMO' ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-surface-elevated text-primary-muted border-border hover:text-primary"
+                      isDemoMode ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-surface-elevated text-primary-muted border-border hover:text-primary"
                     )}
                   >
-                    {data.connectionMode === 'DEMO' ? 'DEMO MODE' : 'LIVE MODE'}
+                    {isDemoMode ? 'DEMO MODE' : 'LIVE MODE'}
                   </button>
                 </div>
               </div>

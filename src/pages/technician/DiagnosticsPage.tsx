@@ -2,7 +2,6 @@ import { Activity, Battery, Camera, Compass, Crosshair, Map, Navigation, ShieldC
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
-import { useTelemetry } from '../../context/TelemetryContext';
 import { useToast } from '../../context/ToastContext';
 import { RefreshCw, Play } from 'lucide-react';
 
@@ -20,7 +19,6 @@ const systems = [
 export const DiagnosticsPage = () => {
   const [activeSystem, setActiveSystem] = useState(systems[0]);
   const [isRunning, setIsRunning] = useState(false);
-  const { data } = useTelemetry();
   const { addToast } = useToast();
 
   const handleRunDiagnostic = () => {
@@ -49,13 +47,13 @@ export const DiagnosticsPage = () => {
             <div>
               <div className="text-2xl font-light tracking-tight text-accent">VEHICLE #042</div>
               <div className="text-[10px] font-bold tracking-widest text-primary-muted mt-1 uppercase flex items-center justify-end gap-1">
-                <div className={cn("w-1.5 h-1.5 rounded-full", data.connectionState === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500')} />
-                {data.connectionState === 'CONNECTED' ? 'SECURE TCP' : 'DISCONNECTED'}
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                SECURE TCP
               </div>
             </div>
             <button 
               onClick={handleRunDiagnostic}
-              disabled={isRunning || data.connectionState !== 'CONNECTED'}
+              disabled={isRunning}
               className="bg-accent text-black px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest uppercase hover:bg-[#33dbff] transition-all shadow-[0_0_15px_rgba(0,210,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} 

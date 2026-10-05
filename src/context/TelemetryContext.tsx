@@ -3,9 +3,6 @@ import type { ReactNode } from 'react';
 
 type SystemStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'OFFLINE' | 'MAINTENANCE' | 'UPDATING';
 
-type ConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED';
-type ConnectionMode = 'DEMO' | 'LIVE';
-
 interface TelemetryData {
   vehicleId: string;
   batteryLevel: number; // 0-100
@@ -16,18 +13,20 @@ interface TelemetryData {
   activeAlertsCount: number;
   openIssuesCount: number;
   osVersion: string;
-  
-  // Connection states
-  connectionState: ConnectionState;
-  connectionMode: ConnectionMode;
+
+  // Enriched Telemetry Model
+  motorTemperature: number; // Celsius
+  batteryTemperature: number; // Celsius
+  powerOutput: number; // kW
+  efficiency: number; // kWh/100km
+  gpsHeading: number; // Degrees
+  driveMode: 'ECO' | 'NORMAL' | 'SPORT';
+  sensorHealth: 'NOMINAL' | 'DEGRADED' | 'FAULT';
 }
 
 interface TelemetryContextType {
   data: TelemetryData;
   updateData: (updates: Partial<TelemetryData>) => void;
-  setConnectionMode: (mode: ConnectionMode) => void;
-  connectVehicle: () => void;
-  disconnectVehicle: () => void;
 }
 
 const defaultData: TelemetryData = {
@@ -40,8 +39,14 @@ const defaultData: TelemetryData = {
   activeAlertsCount: 3,
   openIssuesCount: 1,
   osVersion: '4.8.2',
-  connectionState: 'CONNECTED',
-  connectionMode: 'DEMO'
+  
+  motorTemperature: 68,
+  batteryTemperature: 34,
+  powerOutput: 12.4,
+  efficiency: 14.2,
+  gpsHeading: 0,
+  driveMode: 'NORMAL',
+  sensorHealth: 'NOMINAL',
 };
 
 const TelemetryContext = createContext<TelemetryContextType | undefined>(undefined);
@@ -53,50 +58,29 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
     setData(prev => ({ ...prev, ...updates }));
   };
 
-  const setConnectionMode = (mode: ConnectionMode) => {
-    setData(prev => ({ ...prev, connectionMode: mode, connectionState: mode === 'LIVE' ? 'DISCONNECTED' : 'CONNECTED' }));
-  };
-
-  const connectVehicle = () => {
-    setData(prev => ({ ...prev, connectionState: 'CONNECTING' }));
-    // Simulate connection delay
-    setTimeout(() => {
-      // In a real app, this would initiate Web Bluetooth API
-      if (data.connectionMode === 'LIVE') {
-        // Mock fail or mock success for LIVE mode development
-        // For Phase 5, we'll just mock connection success after 2 seconds for visual feedback
-        setData(prev => ({ ...prev, connectionState: 'CONNECTED' }));
-      }
-    }, 2000);
-  };
-
-  const disconnectVehicle = () => {
-    setData(prev => ({ ...prev, connectionState: 'DISCONNECTED' }));
-  };
-
   useEffect(() => {
-    if (data.connectionMode !== 'DEMO' || data.connectionState !== 'CONNECTED') return;
-    
+    // Mock simulation loop for vehicle data
     const interval = setInterval(() => {
       setData(prev => {
-        // Only drain battery if driving (speed > 0) or randomly just a little
-        // We'll just mock random speed fluctuation and slight battery drain over a long time
+        const isDriving = prev.speed > 0 || prev.autonomousMode;
         const newSpeed = prev.autonomousMode ? 40 + (Math.random() * 4 - 2) : prev.speed;
         
         return {
           ...prev,
-          speed: prev.speed > 0 || prev.autonomousMode ? newSpeed : prev.speed,
-          batteryLevel: Math.max(0, prev.batteryLevel - 0.001),
-          rangeKm: Math.max(0, prev.rangeKm - 0.005)
+          speed: isDriving ? newSpeed : prev.speed,
+          batteryLevel: Math.max(0, prev.batteryLevel - (isDriving ? 0.001 : 0)),
+          rangeKm: Math.max(0, prev.rangeKm - (isDriving ? 0.005 : 0)),
+          powerOutput: isDriving ? 12.0 + (Math.random() * 2) : 0,
+          motorTemperature: isDriving ? 68 + (Math.random() * 2 - 1) : Math.max(30, prev.motorTemperature - 0.5),
         };
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [data.connectionMode, data.connectionState]);
+  }, []);
 
   return (
-    <TelemetryContext.Provider value={{ data, updateData, setConnectionMode, connectVehicle, disconnectVehicle }}>
+    <TelemetryContext.Provider value={{ data, updateData }}>
       {children}
     </TelemetryContext.Provider>
   );
