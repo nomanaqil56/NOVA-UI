@@ -149,10 +149,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                                 replacement.metalness = 0.24;
                                 replacement.roughness = 0.68;
                             } else {
-                                // BODY: medium/dark metallic gray, high metalness, low roughness
-                                replacement.color.set(0x4a5059);
-                                replacement.metalness = 0.78;
-                                replacement.roughness = 0.25;
+                                // BODY: whitish silver, non-metallic
+                                replacement.color.set(0xe8ecef);
+                                replacement.metalness = 0.1;
+                                replacement.roughness = 0.65;
                             }
                         }
 
