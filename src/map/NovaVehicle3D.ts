@@ -134,6 +134,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                         const replacement = material.clone();
 
                         if (replacement instanceof THREE.MeshStandardMaterial) {
+                            replacement.transparent = true;
+                            replacement.opacity = 0.8;
+                            
                             if (isGlass) {
                                 replacement.color.set(0x1a222b);
                                 replacement.metalness = 0.20;
