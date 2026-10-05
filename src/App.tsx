@@ -4,6 +4,7 @@ import { DriverDashboard } from './pages/driver/DriverDashboard';
 import { NavigationPage } from './pages/driver/NavigationPage';
 import { VehiclePage } from './pages/driver/VehiclePage';
 import { TripsPage } from './pages/driver/TripsPage';
+import { AlertsPage } from './pages/driver/AlertsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
@@ -34,7 +35,7 @@ function App() {
           </Route>
           <Route path="vehicle" element={<VehiclePage />} />
           <Route path="trips" element={<TripsPage />} />
-          <Route path="alerts" element={<ModulePage title="Alerts" />} />
+          <Route path="alerts" element={<AlertsPage />} />
           <Route path="*" element={<Navigate to="/driver" replace />} />
         </Route>
         
