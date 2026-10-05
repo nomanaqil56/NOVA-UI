@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { DriverDashboard } from './pages/driver/DriverDashboard';
 import { NavigationPage } from './pages/driver/NavigationPage';
+import { VehiclePage } from './pages/driver/VehiclePage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
@@ -30,7 +31,7 @@ function App() {
             <Route index element={null} />
             <Route path="nav" element={<NavigationPage />} />
           </Route>
-          <Route path="vehicle" element={<ModulePage title="Vehicle" />} />
+          <Route path="vehicle" element={<VehiclePage />} />
           <Route path="trips" element={<ModulePage title="Trips" />} />
           <Route path="alerts" element={<ModulePage title="Alerts" />} />
           <Route path="*" element={<Navigate to="/driver" replace />} />
