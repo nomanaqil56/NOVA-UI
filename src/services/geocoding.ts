@@ -30,13 +30,17 @@ export const searchDestination = async (query: string, location: GPSLocation | n
     cacheKey += `_${latGrid}_${lonGrid}`;
   }
 
-  if (searchCache.has(cacheKey)) {
-    return searchCache.get(cacheKey)!.data;
+  const cachedResult = searchCache.get(cacheKey);
+  if (cachedResult && Date.now() - cachedResult.timestamp < 5 * 60 * 1000) {
+    return cachedResult.data;
+  }
+  if (cachedResult) {
+    searchCache.delete(cacheKey);
   }
 
   try {
-    // Bias heavily to India, but allow other results
-    let url = `${NOMINATIM_BASE_URL}/search?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=10&countrycodes=in`;
+    // Prefer the user's current area when available without excluding other countries.
+    let url = `${NOMINATIM_BASE_URL}/search?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&limit=10`;
     
     // Bias towards current location if available or "near me" used
     if (location) {
@@ -49,17 +53,15 @@ export const searchDestination = async (query: string, location: GPSLocation | n
     }
 
     const response = await fetch(url, {
-      headers: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        'User-Agent': 'Nova_Autonomous_Dashboard/1.0'
-      }
+      headers: { 'Accept-Language': 'en-US,en;q=0.9' }
     });
     
     if (!response.ok) {
       throw new Error('Geocoding failed');
     }
 
-    const data = await response.json();
+    const data: unknown = await response.json();
+    if (!Array.isArray(data)) throw new Error('Geocoding returned an invalid response');
     
     // Deduplicate by place_id
     const seen = new Set();
@@ -71,7 +73,8 @@ export const searchDestination = async (query: string, location: GPSLocation | n
 
     const results = uniqueData.map((item: any) => {
       const address = item.address || {};
-      const primaryName = item.name || address.road || address.neighbourhood || address.suburb || address.city || item.display_name.split(',')[0];
+      const displayName = typeof item.display_name === 'string' ? item.display_name : '';
+      const primaryName = item.name || address.road || address.neighbourhood || address.suburb || address.city || displayName.split(',')[0];
       
       // Extract useful context
       const contextParts = [
@@ -104,13 +107,13 @@ export const searchDestination = async (query: string, location: GPSLocation | n
       // Distance penalty (adds to score)
       if (distance < 10) score -= 10;
       else if (distance < 50) score -= 5;
-      else if (distance > 500) score += 20;
       else if (distance > 2000) score += 50;
+      else if (distance > 500) score += 20;
 
       return {
         placeId: item.place_id.toString(),
         name: primaryName,
-        displayName: context,
+        displayName: context || displayName,
         lat,
         lon,
         type: item.type || 'place',
@@ -139,10 +142,7 @@ export const reverseGeocode = async (lat: number, lon: number): Promise<Geocodin
   const url = `${NOMINATIM_BASE_URL}/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
   try {
     const response = await fetch(url, {
-      headers: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        'User-Agent': 'Nova_Autonomous_Dashboard/1.0'
-      }
+      headers: { 'Accept-Language': 'en-US,en;q=0.9' }
     });
     if (!response.ok) throw new Error('Reverse geocoding failed');
     const data = await response.json();

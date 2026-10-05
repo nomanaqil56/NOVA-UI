@@ -13,7 +13,6 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private camera = new THREE.Camera();
     private renderer: THREE.WebGLRenderer | null = null;
     private modelGroup = new THREE.Group();
-    private vehicleRoot: THREE.Group | null = null;
     private fallbackRoot: THREE.Group | null = null;
     private underglow: THREE.PointLight | null = null;
 
@@ -21,7 +20,7 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     private currentHeading = 0;
     private visualHeading = 0;
     private currentAltitude = 0;
-    private modelReady = false;
+    private removed = false;
 
     public navState = 'IDLE';
     public status: 'LOADING' | 'GLB' | 'PROCEDURAL_FALLBACK' | 'ERROR' = 'LOADING';
@@ -30,23 +29,22 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
         this.scene.add(this.modelGroup);
         this.setupLighting();
         this.createProceduralFallback();
-        console.log('[NOVA 3D] CONSTRUCTOR');
         this.loadGLBModel();
     }
 
     private setupLighting() {
-        const ambient = new THREE.AmbientLight(0xffffff, 1.8);
+        const ambient = new THREE.AmbientLight(0xffffff, 1.2);
         this.scene.add(ambient);
 
-        const key = new THREE.DirectionalLight(0xffffff, 3.0);
+        const key = new THREE.DirectionalLight(0xffffff, 2.0);
         key.position.set(30, -40, 80);
         this.scene.add(key);
 
-        const fill = new THREE.DirectionalLight(0xbfd8ff, 2.0);
+        const fill = new THREE.DirectionalLight(0xbfd8ff, 0.8);
         fill.position.set(-30, 40, 50);
         this.scene.add(fill);
 
-        const rim = new THREE.DirectionalLight(0xffffff, 1.5);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.6);
         rim.position.set(0, 0, 100);
         this.scene.add(rim);
 
@@ -60,9 +58,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         const root = new THREE.Group();
         const bodyMat = new THREE.MeshStandardMaterial({
-            color: 0x6b7280,
-            metalness: 0.75,
-            roughness: 0.28
+            color: 0xd1d5db,
+            metalness: 0.52,
+            roughness: 0.32
         });
         const glassMat = new THREE.MeshStandardMaterial({
             color: 0x111827,
@@ -107,14 +105,16 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
     private loadGLBModel() {
         const loader = new GLTFLoader();
-        console.log('[NOVA 3D] GLB REQUEST');
-
         loader.load(
-            '/models/Koenigsegg.glb',
+            `${import.meta.env.BASE_URL}models/Koenigsegg.glb`,
             (gltf) => {
+                if (this.removed) {
+                    this.disposeThree(gltf.scene);
+                    return;
+                }
+
                 if (!gltf?.scene) {
-                    console.error('[NOVA 3D] GLB returned no scene');
-                    this.status = 'ERROR';
+                    this.status = 'PROCEDURAL_FALLBACK';
                     return;
                 }
 
@@ -126,42 +126,56 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                     meshCount++;
 
                     const mesh = child as THREE.Mesh;
-                    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-                    mesh.material = materials.map((material) => {
-                        const name = String((material as THREE.Material).name || '').toLowerCase();
+                    const isWheel = this.hasWheelAncestor(mesh, source);
+                    const recolor = (material: THREE.Material) => {
+                        const name = material.name.toLowerCase();
                         const isGlass = name.includes('glass') || name.includes('window') || name.includes('windshield');
+                        const isRearLight = name.includes('rear light') || name.includes('taillight') || name.includes('tail light');
+                        const replacement = material.clone();
 
-                        return new THREE.MeshStandardMaterial({
-                            name: material.name || 'NOVA Vehicle Material',
-                            color: isGlass ? 0x10151c : 0x6b7280,
-                            metalness: isGlass ? 0.2 : 0.78,
-                            roughness: isGlass ? 0.16 : 0.27,
-                        });
-                    });
+                        if (replacement instanceof THREE.MeshStandardMaterial) {
+                            if (isGlass) {
+                                replacement.color.set(0x263642);
+                                replacement.metalness = 0.12;
+                                replacement.roughness = 0.2;
+                            } else if (isRearLight) {
+                                replacement.color.set(0xc62e3a);
+                                replacement.emissive.set(0x5c0e16);
+                                replacement.emissiveIntensity = 0.35;
+                                replacement.metalness = 0.15;
+                                replacement.roughness = 0.3;
+                            } else if (isWheel) {
+                                replacement.color.set(0x171b20);
+                                replacement.metalness = 0.24;
+                                replacement.roughness = 0.68;
+                            } else {
+                                replacement.color.set(0xd1d5db);
+                                replacement.metalness = 0.52;
+                                replacement.roughness = 0.32;
+                            }
+                        }
+
+                        return replacement;
+                    };
+
+                    // Single-material meshes have no groups, so keep their material scalar.
+                    mesh.material = Array.isArray(mesh.material)
+                        ? mesh.material.map(recolor)
+                        : recolor(mesh.material);
 
                     mesh.castShadow = false;
                     mesh.receiveShadow = false;
                 });
 
-                console.log('[NOVA 3D] GLB LOADED');
-                console.log('[NOVA 3D] MESH COUNT', meshCount);
-
                 if (meshCount === 0) {
-                    console.error('[NOVA 3D] GLB HAS NO MESHES');
-                    this.status = 'ERROR';
+                    this.disposeThree(source);
+                    this.status = 'PROCEDURAL_FALLBACK';
                     return;
                 }
 
                 const box = new THREE.Box3().setFromObject(source);
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
-
-                console.log('[NOVA 3D] BOUNDS', {
-                    min: box.min.toArray(),
-                    max: box.max.toArray()
-                });
-                console.log('[NOVA 3D] DIMENSIONS', size.toArray());
 
                 // Verified asset convention: X=width, Y=length/forward, Z=up.
                 const vehicleLength = Math.max(size.y, 0.001);
@@ -172,33 +186,33 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                 root.add(source);
                 root.scale.setScalar(normalizedScale);
 
-                this.vehicleRoot = root;
                 this.modelGroup.add(root);
-                this.modelReady = true;
                 this.status = 'GLB';
 
                 if (this.fallbackRoot) {
                     this.fallbackRoot.visible = false;
                 }
 
-                console.log('[NOVA 3D] NORMALIZED SCALE', normalizedScale);
-                console.log('[NOVA 3D] VEHICLE READY — GLB ACTIVE');
-
                 if (this.map) this.map.triggerRepaint();
             },
-            (event) => {
-                if (event.total > 0) {
-                    console.log('[NOVA 3D] GLB PROGRESS', Math.round((event.loaded / event.total) * 100) + '%');
-                }
-            },
+            () => {},
             (error) => {
-                console.error('[NOVA 3D] GLB LOAD FAILED', error);
-                this.modelReady = false;
+                if (this.removed) return;
+                console.error('Unable to load the NOVA vehicle model:', error);
                 this.status = 'PROCEDURAL_FALLBACK';
                 if (this.fallbackRoot) this.fallbackRoot.visible = true;
                 if (this.map) this.map.triggerRepaint();
             }
         );
+    }
+
+    private hasWheelAncestor(mesh: THREE.Mesh, root: THREE.Object3D): boolean {
+        let current: THREE.Object3D | null = mesh;
+        while (current && current !== root) {
+            if (/^(fl|fr|rl|rr)$/i.test(current.name) || /wheel/i.test(current.name)) return true;
+            current = current.parent;
+        }
+        return false;
     }
 
     public updatePosition(lng: number, lat: number) {
@@ -248,43 +262,22 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     private getZoomVisualMultiplier(zoom: number): number {
-        const controlPoints: [number, number][] = [
-            [18, 1.0],
-            [17, 1.8],
-            [16, 3.5],
-            [15, 7.0],
-            [14, 15.0],
-            [13, 35.0],
-            [12, 80.0],
-            [11, 180.0],
-            [10, 400.0],
-            [9, 900.0],
-            [8, 2000.0]
-        ];
-
-        if (zoom >= 18) return 1.00;
-        if (zoom <= 8) return 2000.0;
-
-        for (let i = 0; i < controlPoints.length - 1; i++) {
-            const [z1, v1] = controlPoints[i];
-            const [z2, v2] = controlPoints[i + 1];
-            
-            if (zoom <= z1 && zoom > z2) {
-                const t = (z1 - zoom) / (z1 - z2);
-                const smooth_t = t * t * (3 - 2 * t);
-                return v1 + (v2 - v1) * smooth_t;
-            }
-        }
-        
-        return 1.0;
+        // Keep the vehicle close to a 16px map symbol from zoom 8 through 18.
+        // The exponential scale avoids size jumps from hand-tuned zoom stops.
+        const zoomOffset = THREE.MathUtils.clamp(18 - zoom, -4, 10);
+        return 2 ** zoomOffset;
     }
 
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {
         if (!this.renderer || !this.map || !this.currentLocation) return;
 
         const diff = this.shortestAngleDelta(this.visualHeading, this.currentHeading);
-        this.visualHeading += diff * 0.14;
-        this.visualHeading = (this.visualHeading + 360) % 360;
+        if (Math.abs(diff) > 0.05) {
+            this.visualHeading = (this.visualHeading + diff * 0.14 + 360) % 360;
+            this.map.triggerRepaint();
+        } else {
+            this.visualHeading = (this.currentHeading + 360) % 360;
+        }
 
         const mercator = maplibregl.MercatorCoordinate.fromLngLat(
             this.currentLocation,
@@ -315,25 +308,19 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
-        this.map.triggerRepaint();
     }
 
     private disposeThree(obj: THREE.Object3D) {
-        if (obj instanceof THREE.Mesh) {
-            obj.geometry.dispose();
-            const material = obj.material;
-            if (Array.isArray(material)) material.forEach((m) => m.dispose());
-            else material.dispose();
-        }
-
-        while (obj.children.length > 0) {
-            const child = obj.children[0];
-            this.disposeThree(child);
-            obj.remove(child);
-        }
+        obj.traverse((child) => {
+            if (!(child instanceof THREE.Mesh)) return;
+            child.geometry.dispose();
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((material) => material.dispose());
+        });
     }
 
     public onRemove() {
+        this.removed = true;
         this.disposeThree(this.scene);
         this.renderer?.dispose();
         this.renderer = null;

@@ -4,11 +4,28 @@ import { Navigation, MapPin, History, Map as MapIcon, Volume2, ShieldAlert, Flag
 import { cn } from '../../lib/utils';
 import { useNavigation } from '../../context/NavigationContext';
 
+type SavedPlace = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  type: 'HOME' | 'WORK' | 'FAVORITE';
+};
+
+type RecentDestination = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  timestamp: number;
+};
+
 export const NavigationPage = () => {
   const navigate = useNavigate();
   const {
     navState,
     gpsState,
+    currentLocation,
     destination,
     routes,
     activeRoute,
@@ -26,8 +43,8 @@ export const NavigationPage = () => {
   // Secondary Driver Context (like overrideActive from DriverDashboard Outlet)
   const outletCtx = useOutletContext<{overrideActive: boolean}>() || { overrideActive: false };
 
-  const [savedPlaces, setSavedPlaces] = useState<any[]>([]);
-  const [recentDestinations, setRecentDestinations] = useState<any[]>([]);
+  const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
+  const [recentDestinations, setRecentDestinations] = useState<RecentDestination[]>([]);
   const [tripStops, setTripStops] = useState<any[]>([]);
   const [preferences, setPreferences] = useState({
     avoidTolls: false,
@@ -64,6 +81,27 @@ export const NavigationPage = () => {
   const displayDistance = routeProgress?.distanceRemaining || activeRoute?.distance || 0;
   const displayDuration = routeProgress?.durationRemaining || activeRoute?.duration || 0;
 
+  const saveCurrentLocationAs = (type: SavedPlace['type']) => {
+    if (!currentLocation) return;
+    const defaultName = type === 'HOME' ? 'Home' : type === 'WORK' ? 'Work' : 'Favorite';
+    const name = window.prompt(`Name this ${type.toLowerCase()} place`, defaultName)?.trim();
+    if (!name) return;
+
+    const place: SavedPlace = {
+      id: `${type.toLowerCase()}-${Date.now()}`,
+      name,
+      lat: currentLocation.latitude,
+      lon: currentLocation.longitude,
+      type
+    };
+    setSavedPlaces(prev => [...prev.filter(saved => saved.type !== type), place]);
+  };
+
+  const saveRecentAsFavorite = (entry: RecentDestination) => {
+    const favorite: SavedPlace = { ...entry, type: 'FAVORITE' };
+    setSavedPlaces(prev => [...prev.filter(saved => saved.type !== 'FAVORITE'), favorite]);
+  };
+
   return (
     <div className="absolute inset-0 z-20 pointer-events-none p-6 flex gap-6">
       <div className="w-[450px] h-full flex flex-col gap-4 pointer-events-auto overflow-y-auto hide-scrollbar">
@@ -98,7 +136,13 @@ export const NavigationPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-primary-muted mt-2">Calculating routes...</div>
+              <div className="text-sm text-primary-muted mt-2">
+                {navState === 'ERROR'
+                  ? 'No route is available. Try another destination.'
+                  : currentLocation
+                    ? 'Calculating routes…'
+                    : 'Waiting for a GPS location to calculate the route…'}
+              </div>
             )}
             
             {routes.length > 1 && navState !== 'NAVIGATING' && (
@@ -132,17 +176,29 @@ export const NavigationPage = () => {
         <div className="glass-panel p-5 rounded-2xl border border-border shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[10px] font-bold tracking-widest text-primary-muted uppercase">Saved Places</h2>
-            <button className="text-accent hover:text-[#33dbff]"><Plus className="w-4 h-4" /></button>
+            <button
+              onClick={() => saveCurrentLocationAs('FAVORITE')}
+              disabled={!currentLocation}
+              title={currentLocation ? 'Save current location as a favorite' : 'Waiting for GPS'}
+              className="text-accent hover:text-[#33dbff] disabled:opacity-40 disabled:cursor-not-allowed"
+            ><Plus className="w-4 h-4" /></button>
           </div>
           <div className="grid grid-cols-3 gap-3">
             {['HOME', 'WORK', 'FAVORITE'].map(type => {
               const place = savedPlaces.find(p => p.type === type);
               return (
-                <button key={type} onClick={() => place && setDestination({ placeId: place.id, name: place.name, displayName: place.name, lat: place.lat, lon: place.lon, type: 'place', score: 0, distance: 0 })} className="p-3 rounded-xl bg-surface hover:bg-surface-elevated border border-border flex flex-col items-center gap-2 transition-colors group">
+                <button
+                  key={type}
+                  onClick={() => place
+                    ? setDestination({ placeId: place.id, name: place.name, displayName: place.name, lat: place.lat, lon: place.lon, type: 'place', score: 0, distance: 0 })
+                    : saveCurrentLocationAs(type as SavedPlace['type'])}
+                  title={place ? `Navigate to ${place.name}` : currentLocation ? `Save current location as ${type}` : 'Waiting for GPS'}
+                  className="p-3 rounded-xl bg-surface hover:bg-surface-elevated border border-border flex flex-col items-center gap-2 transition-colors group"
+                >
                   {type === 'HOME' && <MapPin className="w-5 h-5 text-primary-muted group-hover:text-accent" />}
                   {type === 'WORK' && <MapIcon className="w-5 h-5 text-primary-muted group-hover:text-accent" />}
                   {type === 'FAVORITE' && <Flag className="w-5 h-5 text-primary-muted group-hover:text-accent" />}
-                  <span className="text-[10px] font-bold tracking-wider">{type}</span>
+                  <span className="text-[10px] font-bold tracking-wider">{place?.name || type}</span>
                 </button>
               );
             })}
@@ -196,7 +252,7 @@ export const NavigationPage = () => {
                   </div>
                   <div className="flex gap-2 mt-2 h-0 overflow-hidden group-hover:h-auto opacity-0 group-hover:opacity-100 transition-all">
                     <button onClick={() => setDestination({ placeId: entry.id, name: entry.name, displayName: entry.name, lat: entry.lat, lon: entry.lon, type: 'place', score: 0, distance: 0 })} className="flex-1 py-1.5 rounded-lg bg-surface-elevated text-xs font-bold hover:text-accent border border-border">Navigate Again</button>
-                    <button onClick={() => setSavedPlaces([...savedPlaces, {id: entry.id, name: entry.name, lat: entry.lat, lon: entry.lon, type: 'FAVORITE'}])} className="flex-1 py-1.5 rounded-lg bg-surface-elevated text-xs font-bold hover:text-accent border border-border">Save Place</button>
+                    <button onClick={() => saveRecentAsFavorite(entry)} className="flex-1 py-1.5 rounded-lg bg-surface-elevated text-xs font-bold hover:text-accent border border-border">Save Place</button>
                   </div>
                 </div>
               ))}

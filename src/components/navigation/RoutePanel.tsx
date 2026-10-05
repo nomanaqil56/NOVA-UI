@@ -16,14 +16,34 @@ interface RoutePanelProps {
 }
 
 export const RoutePanel = ({ currentLocation, destination, routes, activeRouteId, onSelectRoute, onStartNavigation, onCancelTrip, tripActive }: RoutePanelProps) => {
-  if (!destination || routes.length === 0) return null;
+  const { routeProgress, navState } = useNavigation();
+  if (!destination) return null;
 
   const activeRoute = routes.find(r => r.id === activeRouteId) || routes[0];
-  
+
+  if (!activeRoute) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-panel-elevated rounded-2xl p-5 border-l-2 border-l-accent w-full mt-4"
+      >
+        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-accent" /> {destination.name}
+        </h3>
+        <p className="text-primary-muted text-sm">
+          {navState === 'ERROR'
+            ? 'No route is available. Try another destination.'
+            : currentLocation
+              ? 'Calculating routes…'
+              : 'Waiting for a GPS location to calculate the route…'}
+        </p>
+      </motion.div>
+    );
+  }
+
   let displayDistance = activeRoute.distance;
   let displayDuration = activeRoute.duration;
-
-  const { routeProgress } = useNavigation();
 
   if (tripActive && currentLocation && routeProgress) {
     displayDistance = routeProgress.distanceRemaining;

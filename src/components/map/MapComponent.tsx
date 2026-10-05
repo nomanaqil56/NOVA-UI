@@ -41,12 +41,13 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   const destinationMarkerRef = useRef<Marker | null>(null);
   const vehicle3DRef = useRef<NovaVehicle3DLayer | null>(null);
   
-  const cameraTransitionUntil = useRef<number>(0);
   const cameraModeRef = useRef(cameraMode);
+  const is3DRef = useRef(is3D);
   const currentLocationRef = useRef(currentLocation);
   const onMapClickRef = useRef(onMapClick);
 
   useEffect(() => { cameraModeRef.current = cameraMode; }, [cameraMode]);
+  useEffect(() => { is3DRef.current = is3D; }, [is3D]);
   useEffect(() => { currentLocationRef.current = currentLocation; }, [currentLocation]);
   useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
   
@@ -81,11 +82,9 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
             antialias: true
         }
       });
-      console.log('[NOVA 3D] MAP CREATED');
       map.addControl(new AttributionControl({ compact: true }), 'top-right');
       mapRef.current = map;
       vehicle3DRef.current = new NovaVehicle3DLayer();
-      console.log('[NOVA 3D] LAYER CREATED');
 
       map.on('error', (e) => {
         setDiagnostics(d => ({ ...d, errorCount: d.errorCount + 1 }));
@@ -99,20 +98,16 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         else if (e.dataType === 'source') { setDiagnostics(d => ({ ...d, tiles: 'LOADING' })); }
       });
       map.on('style.load', () => {
-        console.log('[NOVA 3D] STYLE LOADED');
         setDiagnostics(d => ({ ...d, style: 'READY' }));
         initializeRouteLayers(map);
         if (vehicle3DRef.current && !map.getLayer(vehicle3DRef.current.id)) {
             const loc = currentLocationRef.current;
             if (loc) {
-                console.log('[NOVA 3D] GPS RECEIVED', loc);
                 vehicle3DRef.current.updatePosition(loc.longitude, loc.latitude);
                 if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
             }
-            
-            console.log('[NOVA 3D] ADDING LAYER');
-            map.addLayer(vehicle3DRef.current as any);
-            console.log('[NOVA 3D] LAYER REGISTERED', map.getLayer('nova-vehicle-3d') !== undefined);
+
+            map.addLayer(vehicle3DRef.current);
         }
       });
       map.on('sourcedata', (e) => {
@@ -125,12 +120,19 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         setMapStatus('READY');
         setDiagnostics(d => ({ ...d, tiles: 'READY' }));
       });
-      map.on('dragstart', () => {
+      const switchToExplore = () => {
         const mode = cameraModeRef.current;
-        if (mode !== 'INITIALIZING' && mode !== 'GPS_ACQUIRE') {
+        if (mode !== 'INITIALIZING' && mode !== 'GPS_ACQUIRE' && mode !== 'USER_EXPLORE') {
+          cameraModeRef.current = 'USER_EXPLORE';
           setCameraMode('USER_EXPLORE');
         }
-      });
+      };
+      map.on('dragstart', switchToExplore);
+      map.on('wheel', switchToExplore);
+      map.on('dblclick', switchToExplore);
+      map.on('zoomstart', (event) => { if (event.originalEvent) switchToExplore(); });
+      map.on('rotatestart', (event) => { if (event.originalEvent) switchToExplore(); });
+      map.on('pitchstart', (event) => { if (event.originalEvent) switchToExplore(); });
       map.on('click', (e) => {
         const mode = cameraModeRef.current;
         if (mode === 'INITIALIZING' || mode === 'GPS_ACQUIRE') return;
@@ -163,61 +165,73 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
   useEffect(() => {
     if (mapStatus !== 'READY' || !mapRef.current || !mapRef.current.isStyleLoaded()) return;
     
-    const safeSource = mapRef.current.getSource('route') as GeoJSONSource;
-    if (!safeSource) {
+    let routeSource = mapRef.current.getSource('route') as GeoJSONSource | undefined;
+    if (!routeSource) {
       initializeRouteLayers(mapRef.current);
+      routeSource = mapRef.current.getSource('route') as GeoJSONSource | undefined;
     }
+    if (!routeSource) return;
     
-    if (activeRoute && safeSource) {
-      safeSource.setData({
+    if (activeRoute) {
+      routeSource.setData({
         type: 'Feature',
         properties: {},
         geometry: { type: 'LineString', coordinates: activeRoute.geometry.coordinates }
       });
-    } else if (safeSource) {
-      safeSource.setData({ type: 'FeatureCollection', features: [] });
+    } else {
+      routeSource.setData({ type: 'FeatureCollection', features: [] });
     }
   }, [activeRoute, mapStatus]);
 
   // Handle Camera Mode Transitions (Only modifying existing map)
   const lastHandledCameraMode = useRef<string | null>(null);
+  const lastFollowLocationTimestamp = useRef<number | null>(null);
 
   useEffect(() => {
     if (mapStatus !== 'READY' || !mapRef.current) return;
     const map = mapRef.current;
     
     if (lastHandledCameraMode.current === cameraMode) {
-        // Allow re-triggering OVERVIEW for 3D toggle, or ROUTE_PREVIEW for activeRoute changes
+        // Refit the route preview when the selected route changes.
         if (cameraMode !== 'OVERVIEW' && cameraMode !== 'ROUTE_PREVIEW') {
             return;
         }
+    }
+
+    if (cameraMode === 'USER_EXPLORE') {
+      lastHandledCameraMode.current = cameraMode;
+      return;
     }
     
     const loc = currentLocationRef.current;
     
     if (cameraMode === 'ROUTE_PREVIEW' && activeRoute) {
         lastHandledCameraMode.current = cameraMode;
-        cameraTransitionUntil.current = performance.now() + 1500;
         const bounds = new LngLatBounds();
         activeRoute.geometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
-        map.fitBounds(bounds, { padding: { top: 150, bottom: 250, left: 450, right: 100 }, duration: 1500 });
+        map.fitBounds(bounds, {
+          padding: { top: 150, bottom: 250, left: 450, right: 100 },
+          pitch: is3DRef.current ? 60 : 0,
+          bearing: 0,
+          duration: 1500
+        });
     } else if (cameraMode === 'NAVIGATION' && loc) {
         lastHandledCameraMode.current = cameraMode;
-        cameraTransitionUntil.current = performance.now() + 1500;
+        lastFollowLocationTimestamp.current = loc.timestamp;
         map.easeTo({
           center: [loc.longitude, loc.latitude],
-          pitch: 60,
-          bearing: loc.heading || map.getBearing(),
+          pitch: is3DRef.current ? 60 : 0,
+          bearing: loc.heading !== null ? loc.heading : map.getBearing(),
           padding: { bottom: 250, top: 0, left: 0, right: 0 },
           zoom: 16.5,
           duration: 1500
         });
     } else if (cameraMode === 'OVERVIEW' && loc) {
         lastHandledCameraMode.current = cameraMode;
-        cameraTransitionUntil.current = performance.now() + 1500;
+        lastFollowLocationTimestamp.current = loc.timestamp;
         map.easeTo({
           center: [loc.longitude, loc.latitude],
-          pitch: is3D ? 60 : 0,
+          pitch: is3DRef.current ? 60 : 0,
           bearing: 0,
           padding: { bottom: 0, top: 0, left: 0, right: 0 },
           zoom: 15.5,
@@ -233,8 +247,6 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         if (loc.heading !== null) vehicle3DRef.current.updateHeading(loc.heading);
       }
 
-      cameraTransitionUntil.current = performance.now() + 2500;
-      
       // Snap map center to GPS location immediately to prevent flying across the world
       map.setCenter([loc.longitude, loc.latitude]);
 
@@ -242,7 +254,7 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
       map.flyTo({ 
         center: [loc.longitude, loc.latitude], 
         zoom: 16, 
-        pitch: is3D ? 60 : 0, 
+        pitch: is3DRef.current ? 60 : 0,
         bearing: 0, 
         duration: 2000, 
         essential: true 
@@ -254,7 +266,38 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
         }
       });
     }
-  }, [cameraMode, mapStatus, activeRoute, is3D, setCameraMode, currentLocation]); 
+  }, [cameraMode, mapStatus, activeRoute, setCameraMode]);
+
+  // Keep the camera on the vehicle in tracking modes as GPS fixes arrive.
+  // Manual map gestures switch to USER_EXPLORE, so they stop this follow behavior.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== 'READY' || !currentLocation) return;
+    if (cameraMode !== 'OVERVIEW' && cameraMode !== 'NAVIGATION') return;
+    if (lastFollowLocationTimestamp.current === currentLocation.timestamp) return;
+    lastFollowLocationTimestamp.current = currentLocation.timestamp;
+    map.easeTo({
+      center: [currentLocation.longitude, currentLocation.latitude],
+      pitch: is3DRef.current ? 60 : 0,
+      bearing: cameraMode === 'NAVIGATION' && currentLocation.heading !== null
+        ? currentLocation.heading
+        : map.getBearing(),
+      padding: cameraMode === 'NAVIGATION'
+        ? { bottom: 250, top: 0, left: 0, right: 0 }
+        : { bottom: 0, top: 0, left: 0, right: 0 },
+      duration: 750,
+      essential: true
+    });
+  }, [cameraMode, currentLocation, mapStatus]);
+
+  const lastApplied3D = useRef(is3D);
+  useEffect(() => {
+    if (lastApplied3D.current === is3D) return;
+    lastApplied3D.current = is3D;
+    if (!mapRef.current || mapStatus !== 'READY' || cameraMode === 'GPS_ACQUIRE' || cameraMode === 'INITIALIZING') return;
+
+    mapRef.current.easeTo({ pitch: is3D ? 60 : 0, duration: 700 });
+  }, [is3D, mapStatus, cameraMode]);
 
   // Pass navigation state to vehicle layer
   useEffect(() => {

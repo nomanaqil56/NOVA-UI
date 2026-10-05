@@ -82,6 +82,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
 
   const routeAbortController = useRef<AbortController | null>(null);
   const routeRequestId = useRef(0);
+  const routedDestinationId = useRef<string | null>(null);
   const offRouteCount = useRef(0);
   const lastValidLocation = useRef<GPSLocation | null>(null);
   const gpsSessionRef = useRef(0);
@@ -128,7 +129,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     return () => { stopGPS(); };
   }, [isDemoMode, handleLocationUpdate]);
 
-  const calculateRoute = async (dest: GeocodingResult, startLoc: GPSLocation) => {
+  const calculateRoute = useCallback(async (dest: GeocodingResult, startLoc: GPSLocation) => {
     const currentId = ++routeRequestId.current;
     setNavState('RECALCULATING');
     
@@ -155,9 +156,12 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     } catch {
       if (routeRequestId.current === currentId) setNavState('ERROR');
     }
-  };
+  }, []);
 
   const setDestination = useCallback((dest: GeocodingResult | null) => {
+    routeRequestId.current++;
+    routedDestinationId.current = null;
+    routeAbortController.current?.abort();
     setDestinationState(dest);
     setRoutes([]);
     setActiveRouteIdState(null);
@@ -165,13 +169,14 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
     if (!dest) {
       setNavState('IDLE');
       setCameraMode('OVERVIEW');
-      if (routeAbortController.current) {
-        routeAbortController.current.abort();
-      }
-    } else if (currentLocation) {
-      calculateRoute(dest, currentLocation);
     }
-  }, [currentLocation]);
+  }, []);
+
+  useEffect(() => {
+    if (!destination || !currentLocation || routedDestinationId.current === destination.placeId) return;
+    routedDestinationId.current = destination.placeId;
+    void calculateRoute(destination, currentLocation);
+  }, [destination, currentLocation, calculateRoute]);
 
   const setActiveRouteId = useCallback((id: string | null) => {
       setActiveRouteIdState(id);
@@ -273,7 +278,7 @@ export const NavigationProvider: React.FC<{children: React.ReactNode}> = ({ chil
         distanceToNextManeuver: 0
       });
     }
-  }, [currentLocation, activeRouteIdState, navState, destination, routes, finishTrip]);
+  }, [currentLocation, activeRouteIdState, navState, destination, routes, finishTrip, calculateRoute]);
 
   const activeRoute = routes.find(r => r.id === activeRouteIdState) || null;
 
