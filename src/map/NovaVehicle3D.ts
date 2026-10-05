@@ -135,9 +135,9 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
                         if (replacement instanceof THREE.MeshStandardMaterial) {
                             if (isGlass) {
-                                replacement.color.set(0x263642);
-                                replacement.metalness = 0.12;
-                                replacement.roughness = 0.2;
+                                replacement.color.set(0x1a222b);
+                                replacement.metalness = 0.20;
+                                replacement.roughness = 0.15;
                             } else if (isRearLight) {
                                 replacement.color.set(0xc62e3a);
                                 replacement.emissive.set(0x5c0e16);
@@ -149,9 +149,10 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                                 replacement.metalness = 0.24;
                                 replacement.roughness = 0.68;
                             } else {
-                                replacement.color.set(0xd1d5db);
-                                replacement.metalness = 0.52;
-                                replacement.roughness = 0.32;
+                                // BODY: medium/dark metallic gray, high metalness, low roughness
+                                replacement.color.set(0x4a5059);
+                                replacement.metalness = 0.78;
+                                replacement.roughness = 0.25;
                             }
                         }
 
@@ -165,6 +166,13 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
 
                     mesh.castShadow = false;
                     mesh.receiveShadow = false;
+                    mesh.frustumCulled = false;
+                    // Also make sure it renders on both sides just in case winding is flipped
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(m => m.side = THREE.DoubleSide);
+                    } else {
+                        mesh.material.side = THREE.DoubleSide;
+                    }
                 });
 
                 if (meshCount === 0) {
@@ -262,10 +270,30 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
     }
 
     private getZoomVisualMultiplier(zoom: number): number {
-        // Keep the vehicle close to a 16px map symbol from zoom 8 through 18.
-        // The exponential scale avoids size jumps from hand-tuned zoom stops.
-        const zoomOffset = THREE.MathUtils.clamp(18 - zoom, -4, 10);
-        return 2 ** zoomOffset;
+        // Base multiplier to hit ~70px target at zoom 18 for a 4.9m model.
+        // MapLibre zoom logic halves scale each step down, so we use 2^(18 - zoom) to maintain pixel size.
+        const baseMultiplier = 4.5 * Math.pow(2, Math.max(0, 18 - zoom));
+
+        // Use the exact continuous scaling approach requested:
+        // 18->1.00, 17->1.03, 16->1.08, 15->1.15, 14->1.28, 13->1.45, 
+        // 12->1.65, 11->1.90, 10->2.20, 9->2.55, 8->2.90
+        // We divide baseMultiplier by this factor so the pixel size smoothly shrinks
+        // as we zoom out, hitting exactly the target screen sizes.
+        let factor = 1.0;
+        if (zoom >= 18) factor = 1.0;
+        else if (zoom >= 17) factor = 1.00 + (1.03 - 1.00) * (18 - zoom);
+        else if (zoom >= 16) factor = 1.03 + (1.08 - 1.03) * (17 - zoom);
+        else if (zoom >= 15) factor = 1.08 + (1.15 - 1.08) * (16 - zoom);
+        else if (zoom >= 14) factor = 1.15 + (1.28 - 1.15) * (15 - zoom);
+        else if (zoom >= 13) factor = 1.28 + (1.45 - 1.28) * (14 - zoom);
+        else if (zoom >= 12) factor = 1.45 + (1.65 - 1.45) * (13 - zoom);
+        else if (zoom >= 11) factor = 1.65 + (1.90 - 1.65) * (12 - zoom);
+        else if (zoom >= 10) factor = 1.90 + (2.20 - 1.90) * (11 - zoom);
+        else if (zoom >= 9)  factor = 2.20 + (2.55 - 2.20) * (10 - zoom);
+        else if (zoom >= 8)  factor = 2.55 + (2.90 - 2.55) * (9 - zoom);
+        else factor = 2.90;
+
+        return baseMultiplier / factor;
     }
 
     public render(_gl: WebGLRenderingContext, input: CustomRenderMethodInput) {

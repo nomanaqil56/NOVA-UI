@@ -308,15 +308,13 @@ export const MapComponent = ({ onMapClick, pickedLocation }: MapComponentProps) 
 
   // Update Vehicle Model & Camera smoothly via requestAnimationFrame
   const updateVisuals = useCallback((location: GPSLocation) => {
-    if (!mapRef.current || mapStatus !== 'READY') return;
-
     if (vehicle3DRef.current) {
         vehicle3DRef.current.updatePosition(location.longitude, location.latitude);
         if (location.heading !== null) {
             vehicle3DRef.current.updateHeading(location.heading);
         }
     }
-  }, [mapStatus]);
+  }, []);
 
   useNavigationEngine(currentLocation, updateVisuals);
 
