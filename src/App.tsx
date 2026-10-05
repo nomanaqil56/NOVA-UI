@@ -10,9 +10,12 @@ import { UsersPage } from './pages/admin/UsersPage';
 import { SystemPage } from './pages/admin/SystemPage';
 import { SoftwarePage } from './pages/admin/SoftwarePage';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
+import { DiagnosticsPage } from './pages/technician/DiagnosticsPage';
+import { IssuesPage } from './pages/technician/IssuesPage';
+import { TestsPage } from './pages/technician/TestsPage';
+import { MaintenancePage } from './pages/technician/MaintenancePage';
 import { useRole } from './context/RoleContext';
 
-import { ModulePage } from './components/shared/ModulePage';
 
 function App() {
   const { role } = useRole();
@@ -53,10 +56,10 @@ function App() {
         
         <Route path="tech">
           <Route index element={<TechnicianDashboard />} />
-          <Route path="diagnostics" element={<ModulePage title="Diagnostics" />} />
-          <Route path="issues" element={<ModulePage title="Issues" />} />
-          <Route path="tests" element={<ModulePage title="Tests" />} />
-          <Route path="maintenance" element={<ModulePage title="Maintenance" />} />
+          <Route path="diagnostics" element={<DiagnosticsPage />} />
+          <Route path="issues" element={<IssuesPage />} />
+          <Route path="tests" element={<TestsPage />} />
+          <Route path="maintenance" element={<MaintenancePage />} />
           <Route path="*" element={<Navigate to="/tech" replace />} />
         </Route>
       </Route>
