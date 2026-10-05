@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Activity, ArrowRight, Battery, Calendar, Clock, Cpu, MapPin, Navigation, Shield, Waypoints, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Badge } from '../../components/ui/Badge';
 
 interface Trip {
   id: string;
@@ -160,14 +161,9 @@ export const TripsPage = () => {
                   </div>
                   
                   <div className="flex flex-col items-end gap-2">
-                    <span className={cn(
-                      "text-[10px] font-bold tracking-wider px-2 py-0.5 rounded uppercase border",
-                      trip.status === 'AUTONOMOUS' ? "bg-accent/10 text-accent border-accent/20" : 
-                      trip.status === 'MANUAL INTERVENTION' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                      "bg-red-500/10 text-red-500 border-red-500/20"
-                    )}>
+                    <Badge variant={trip.status === 'AUTONOMOUS' ? 'ACTIVE' : trip.status === 'MANUAL INTERVENTION' ? 'WARNING' : 'CRITICAL'}>
                       {trip.status}
-                    </span>
+                    </Badge>
                     <span className="text-xs font-mono text-primary-muted opacity-50 group-hover:opacity-100 transition-opacity">
                       {trip.id}
                     </span>

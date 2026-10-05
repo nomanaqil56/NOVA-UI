@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Activity, CheckCircle2, Play, RefreshCw, XCircle } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 type TestStatus = 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 
@@ -18,11 +19,12 @@ const testsList: TestItem[] = [
 ];
 
 export const TestsPage = () => {
+  const { addToast } = useToast();
   const [testStates, setTestStates] = useState<Record<string, { status: TestStatus, progress: number }>>(
     testsList.reduce((acc, test) => ({ ...acc, [test.id]: { status: 'IDLE', progress: 0 } }), {})
   );
 
-  const runTest = (id: string) => {
+  const runTest = (id: string, name: string) => {
     setTestStates(prev => ({ ...prev, [id]: { status: 'RUNNING', progress: 0 } }));
     
     let currentProgress = 0;
@@ -32,6 +34,11 @@ export const TestsPage = () => {
         clearInterval(interval);
         const isSuccess = Math.random() > 0.15; // 85% chance of success
         setTestStates(prev => ({ ...prev, [id]: { status: isSuccess ? 'SUCCESS' : 'FAILED', progress: 100 } }));
+        if (isSuccess) {
+          addToast('success', `${name} passed successfully.`);
+        } else {
+          addToast('critical', `${name} failed. Check diagnostics.`);
+        }
       } else {
         setTestStates(prev => ({ ...prev, [id]: { status: 'RUNNING', progress: currentProgress } }));
       }
@@ -69,7 +76,7 @@ export const TestsPage = () => {
                   <div className="w-full md:w-64 flex flex-col justify-center">
                     {state.status === 'IDLE' && (
                       <button 
-                        onClick={() => runTest(test.id)}
+                        onClick={() => runTest(test.id, test.name)}
                         className="w-full py-3 rounded-xl bg-surface-elevated border border-border text-primary font-bold text-xs tracking-widest uppercase hover:bg-surface hover:text-white transition-colors flex items-center justify-center gap-2"
                       >
                         <Play className="w-4 h-4" /> Run Test
@@ -90,7 +97,7 @@ export const TestsPage = () => {
 
                     {state.status === 'SUCCESS' && (
                       <button 
-                        onClick={() => runTest(test.id)}
+                        onClick={() => runTest(test.id, test.name)}
                         className="w-full py-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 font-bold text-xs tracking-widest uppercase hover:bg-green-500/20 transition-colors flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 className="w-4 h-4" /> Passed - Re-run
@@ -99,7 +106,7 @@ export const TestsPage = () => {
 
                     {state.status === 'FAILED' && (
                       <button 
-                        onClick={() => runTest(test.id)}
+                        onClick={() => runTest(test.id, test.name)}
                         className="w-full py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 font-bold text-xs tracking-widest uppercase hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
                       >
                         <XCircle className="w-4 h-4" /> Failed - Re-run

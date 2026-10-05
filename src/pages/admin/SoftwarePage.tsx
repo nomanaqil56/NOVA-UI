@@ -1,15 +1,28 @@
 import { ArrowDownToLine, CheckCircle2, Clock, DownloadCloud, Radio, RefreshCw, ShieldCheck } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
+import { useToast } from '../../context/ToastContext';
+import { useTelemetry } from '../../context/TelemetryContext';
+import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
+import { AlertTriangle } from 'lucide-react';
 
 export const SoftwarePage = () => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { addToast } = useToast();
+  const { data, updateData } = useTelemetry();
 
   const handleDeploy = () => {
     setIsDeploying(true);
     setShowConfirm(false);
-    setTimeout(() => setIsDeploying(false), 3000);
+    addToast('info', 'OTA Deployment initiated to fleet.');
+    
+    setTimeout(() => {
+      setIsDeploying(false);
+      addToast('success', 'NOVA OS 4.9.0 deployed successfully.');
+      updateData({ osVersion: '4.9.0' });
+    }, 3000);
   };
 
   const vehicles = [
@@ -24,35 +37,41 @@ export const SoftwarePage = () => {
   return (
     <div className="w-full h-full bg-[#080A0D] p-6 lg:p-8 text-primary overflow-y-auto hide-scrollbar flex flex-col relative">
       
-      {/* Confirmation Modal overlay */}
-      {showConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-panel-elevated p-8 rounded-2xl border border-border max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-medium text-white mb-2 flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-amber-500" />
-              Confirm Fleet Deployment
-            </h3>
-            <p className="text-sm text-primary-muted mb-6 leading-relaxed">
-              You are about to deploy NOVA OS 4.9.0 to 142 vehicles. 
-              Vehicles currently in transit will download the update but will wait until parked to install.
+      {/* Confirmation Modal */}
+      <Modal 
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        title="Confirm Fleet Deployment"
+        destructive={true}
+        actions={
+          <>
+            <button 
+              onClick={() => setShowConfirm(false)}
+              className="px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase text-primary-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleDeploy}
+              className="px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase bg-accent text-black hover:bg-[#33dbff] transition-colors shadow-[0_0_15px_rgba(0,210,255,0.3)]"
+            >
+              Initiate Deployment
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p>
+            You are about to deploy <span className="text-white font-bold">NOVA OS 4.9.0</span> to 142 vehicles. 
+          </p>
+          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-amber-500/90 text-xs leading-relaxed">
+              Vehicles currently in transit will download the update but will wait until parked to install. Active diagnostic sessions will be suspended during reboot.
             </p>
-            <div className="flex gap-4 justify-end">
-              <button 
-                onClick={() => setShowConfirm(false)}
-                className="px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase border border-border text-primary-muted hover:text-white hover:bg-surface transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleDeploy}
-                className="px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase bg-accent text-black hover:bg-[#33dbff] transition-colors shadow-[0_0_15px_rgba(0,210,255,0.3)]"
-              >
-                Initiate Deployment
-              </button>
-            </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       <div className="max-w-5xl mx-auto w-full flex flex-col h-full min-h-0">
         
@@ -76,15 +95,16 @@ export const SoftwarePage = () => {
             <div className="glass-panel p-6 rounded-2xl border border-border flex items-center justify-between">
               <div>
                 <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-2">Current Fleet Version</div>
-                <div className="text-3xl font-light text-white tracking-tight">NOVA OS 4.8.2</div>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-primary-muted" />
-              </div>
+              <div className="text-3xl font-light text-white tracking-tight">NOVA OS {data.osVersion}</div>
             </div>
+            <div className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6 text-primary-muted" />
+            </div>
+          </div>
 
-            {/* Available Update */}
-            <div className="glass-panel-elevated p-8 rounded-2xl border border-accent/40 shadow-[0_0_30px_rgba(0,210,255,0.05)] relative overflow-hidden">
+          {/* Available Update */}
+          {data.osVersion === '4.8.2' ? (
+            <div className="glass-panel-elevated p-8 rounded-2xl border border-accent/40 shadow-[0_0_30px_rgba(0,210,255,0.05)] relative overflow-hidden transition-all duration-300">
               <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
               
               <div className="flex justify-between items-start mb-6">
@@ -94,9 +114,7 @@ export const SoftwarePage = () => {
                   </div>
                   <div className="text-4xl font-light text-white tracking-tight">NOVA OS 4.9.0</div>
                 </div>
-                <div className="px-3 py-1 rounded bg-green-500/10 border border-green-500/30 text-green-500 text-[10px] font-bold tracking-widest uppercase">
-                  READY FOR DEPLOYMENT
-                </div>
+                <Badge variant="SUCCESS">READY FOR DEPLOYMENT</Badge>
               </div>
 
               <div className="space-y-4 mb-8">
@@ -130,8 +148,14 @@ export const SoftwarePage = () => {
                 )}
               </button>
             </div>
+          ) : (
+            <div className="glass-panel p-8 rounded-2xl border border-border flex flex-col items-center justify-center text-center opacity-50">
+              <CheckCircle2 className="w-12 h-12 text-primary-muted mb-4" />
+              <div className="text-sm font-medium text-primary-muted uppercase tracking-widest">System is up to date</div>
+            </div>
+          )}
 
-          </div>
+        </div>
 
           {/* Right Column: Fleet Status */}
           <div className="glass-panel rounded-2xl border border-border flex flex-col h-full min-h-0 overflow-hidden">
@@ -153,14 +177,14 @@ export const SoftwarePage = () => {
                       <span className="font-semibold text-white tracking-wide">{v.id}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                      {v.status === 'DOWNLOADING' && (
+                      {(v.status === 'DOWNLOADING' || isDeploying) && (
                         <div className="w-24 h-1.5 bg-surface rounded-full overflow-hidden">
                           <div className="h-full bg-amber-500 w-[45%] rounded-full animate-pulse" />
                         </div>
                       )}
-                      <span className={cn("text-[10px] font-bold tracking-wider uppercase px-2 py-1 rounded border min-w-[90px] text-center", v.color)}>
-                        {v.status}
-                      </span>
+                      <Badge variant={isDeploying ? 'UPDATING' : v.status}>
+                        {isDeploying ? 'UPDATING' : v.status}
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -174,5 +198,3 @@ export const SoftwarePage = () => {
   );
 };
 
-// Needed AlertTriangle since I used it above
-import { AlertTriangle } from 'lucide-react';

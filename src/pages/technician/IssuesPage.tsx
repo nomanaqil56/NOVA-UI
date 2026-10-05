@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { AlertCircle, AlertTriangle, Clock, MapPin, MessageSquare, ShieldAlert } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
+import { useToast } from '../../context/ToastContext';
 
 type Severity = 'HIGH' | 'MEDIUM' | 'LOW';
 
@@ -47,12 +50,33 @@ const mockIssues: Issue[] = [
 ];
 
 export const IssuesPage = () => {
+  const [issues, setIssues] = useState<Issue[]>(mockIssues);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(mockIssues[0]);
+  const [showResolveModal, setShowResolveModal] = useState<string | null>(null);
+  const { addToast } = useToast();
+
+  const handleAssign = (issueId: string) => {
+    setIssues(prev => prev.map(i => i.id === issueId ? { ...i, assignee: 'Current User', status: 'IN PROGRESS' } : i));
+    if (selectedIssue?.id === issueId) {
+      setSelectedIssue(prev => prev ? { ...prev, assignee: 'Current User', status: 'IN PROGRESS' } : null);
+    }
+    addToast('info', 'Issue assigned to you.');
+  };
+
+  const confirmResolve = () => {
+    if (!showResolveModal) return;
+    setIssues(prev => prev.map(i => i.id === showResolveModal ? { ...i, status: 'RESOLVED' } : i));
+    if (selectedIssue?.id === showResolveModal) {
+      setSelectedIssue(prev => prev ? { ...prev, status: 'RESOLVED' } : null);
+    }
+    addToast('success', 'Issue marked as resolved.');
+    setShowResolveModal(null);
+  };
 
   const getSeverityColor = (sev: Severity) => {
     if (sev === 'HIGH') return 'text-red-500 bg-red-500/10 border-red-500/30';
     if (sev === 'MEDIUM') return 'text-amber-500 bg-amber-500/10 border-amber-500/30';
-    return 'text-accent bg-accent/10 border-accent/30';
+    return 'text-primary-muted bg-surface border-border';
   };
 
   return (
@@ -80,10 +104,10 @@ export const IssuesPage = () => {
             <div className="glass-panel rounded-2xl border border-border flex flex-col h-full overflow-hidden">
               <div className="p-5 border-b border-border/50 bg-black/40 flex-shrink-0 flex justify-between items-center">
                 <h3 className="text-xs font-bold tracking-widest text-primary-muted uppercase">Active Issues</h3>
-                <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded border border-accent/20">{mockIssues.length} OPEN</span>
+                <Badge variant="UPDATING">{issues.filter(i => i.status !== 'RESOLVED').length} OPEN</Badge>
               </div>
               <div className="flex-1 overflow-y-auto hide-scrollbar p-3 space-y-2">
-                {mockIssues.map((issue) => (
+                {issues.map((issue) => (
                   <button
                     key={issue.id}
                     onClick={() => setSelectedIssue(issue)}
@@ -94,10 +118,10 @@ export const IssuesPage = () => {
                         : "bg-surface border-transparent hover:bg-surface-elevated hover:border-border"
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={cn("text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded border", getSeverityColor(issue.severity))}>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant={issue.severity === 'HIGH' ? 'CRITICAL' : issue.severity === 'MEDIUM' ? 'WARNING' : 'INFO'}>
                         {issue.severity}
-                      </span>
+                      </Badge>
                       <span className="text-xs font-mono text-primary-muted opacity-50">{issue.time}</span>
                     </div>
                     
@@ -133,9 +157,9 @@ export const IssuesPage = () => {
                         <h2 className="text-2xl font-light tracking-tight text-white">{selectedIssue.title}</h2>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full border border-border bg-surface text-primary-muted">
+                    <Badge variant={selectedIssue.status === 'RESOLVED' ? 'SUCCESS' : selectedIssue.status === 'IN PROGRESS' ? 'UPDATING' : 'WARNING'} dot>
                       {selectedIssue.status}
-                    </span>
+                    </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-8">
@@ -157,10 +181,18 @@ export const IssuesPage = () => {
                   </div>
 
                   <div className="flex gap-4">
-                    <button className="flex-1 bg-accent/10 border border-accent/30 text-accent py-3 rounded-xl text-xs font-bold tracking-widest uppercase hover:bg-accent/20 transition-colors">
+                    <button 
+                      onClick={() => handleAssign(selectedIssue.id)}
+                      disabled={selectedIssue.status === 'RESOLVED' || selectedIssue.assignee === 'Current User'}
+                      className="flex-1 bg-accent/10 border border-accent/30 text-accent py-3 rounded-xl text-xs font-bold tracking-widest uppercase hover:bg-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Assign to Me
                     </button>
-                    <button className="flex-1 bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl text-xs font-bold tracking-widest uppercase hover:bg-green-500/20 transition-colors">
+                    <button 
+                      onClick={() => setShowResolveModal(selectedIssue.id)}
+                      disabled={selectedIssue.status === 'RESOLVED'}
+                      className="flex-1 bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl text-xs font-bold tracking-widest uppercase hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Mark Resolved
                     </button>
                   </div>
@@ -186,6 +218,33 @@ export const IssuesPage = () => {
 
         </div>
       </div>
+
+      <Modal 
+        isOpen={!!showResolveModal}
+        onClose={() => setShowResolveModal(null)}
+        title="Resolve Ticket"
+        actions={
+          <>
+            <button 
+              onClick={() => setShowResolveModal(null)}
+              className="px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase text-primary-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={confirmResolve}
+              className="px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors shadow-lg bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500/20"
+            >
+              Mark Resolved
+            </button>
+          </>
+        }
+      >
+        <p>
+          Are you sure you want to mark this issue as resolved? 
+          The ticket will be closed and removed from the active queue.
+        </p>
+      </Modal>
     </div>
   );
 };

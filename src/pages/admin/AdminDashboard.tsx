@@ -1,6 +1,8 @@
 import { Users, Server, AlertCircle, RefreshCw, Cpu, Activity, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../../lib/utils';
+import { Badge } from '../../components/ui/Badge';
+import { useToast } from '../../context/ToastContext';
 
 const performanceData = Array.from({ length: 20 }).map((_, i) => ({
   time: i,
@@ -102,17 +104,9 @@ const StatCard = ({ title, value, icon: Icon, trend, alert, action }: any) => (
 );
 
 const AlertItem = ({ type, time, text }: any) => {
-  const colors = {
-    CRITICAL: 'text-red-500 bg-red-500/10 border-red-500/20',
-    WARNING: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-    INFO: 'text-accent bg-accent/10 border-accent/20',
-  };
-  
   return (
-    <div className="flex gap-3 text-sm">
-      <div className={cn("px-2 py-1 rounded text-[10px] font-bold tracking-wider h-fit border", colors[type as keyof typeof colors])}>
-        {type}
-      </div>
+    <div className="flex gap-3 text-sm items-start">
+      <Badge variant={type}>{type}</Badge>
       <div>
         <p className="text-primary font-medium">{text}</p>
         <p className="text-xs text-primary-muted mt-1">{time}</p>
@@ -121,21 +115,32 @@ const AlertItem = ({ type, time, text }: any) => {
   );
 };
 
-const UserRow = ({ name, email, role, status }: any) => (
-  <tr className="border-b border-border/50 hover:bg-surface/50 transition-colors">
-    <td className="py-4">
-      <div className="font-medium text-primary">{name}</div>
-      <div className="text-xs text-primary-muted">{email}</div>
-    </td>
-    <td className="py-4"><span className="px-3 py-1 bg-surface rounded-full text-xs text-primary-muted border border-border">{role}</span></td>
-    <td className="py-4">
-      <div className="flex items-center gap-2">
-        <div className={cn("w-1.5 h-1.5 rounded-full", status === 'Active' ? 'bg-green-500' : 'bg-primary-muted')} />
-        <span className="text-xs text-primary-muted">{status}</span>
-      </div>
-    </td>
-    <td className="py-4 text-right">
-      <button disabled className="text-xs font-semibold text-accent opacity-50 cursor-not-allowed transition-colors">Manage</button>
-    </td>
-  </tr>
-);
+const UserRow = ({ name, email, role, status }: any) => {
+  const { addToast } = useToast();
+  return (
+    <tr className="border-b border-border/50 hover:bg-surface/50 transition-colors">
+      <td className="py-4">
+        <div className="font-medium text-primary">{name}</div>
+        <div className="text-xs text-primary-muted">{email}</div>
+      </td>
+      <td className="py-4">
+        <Badge variant={role === 'Administrator' ? 'UPDATING' : role === 'Technician' ? 'WARNING' : 'OFFLINE'}>
+          {role}
+        </Badge>
+      </td>
+      <td className="py-4">
+        <Badge variant={status === 'Active' ? 'ACTIVE' : 'OFFLINE'} dot>
+          {status}
+        </Badge>
+      </td>
+      <td className="py-4 text-right">
+        <button 
+          onClick={() => addToast('info', `Opening management panel for ${name}...`)}
+          className="text-xs font-semibold text-accent hover:text-[#33dbff] transition-colors"
+        >
+          Manage
+        </button>
+      </td>
+    </tr>
+  );
+};

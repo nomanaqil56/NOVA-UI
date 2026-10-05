@@ -8,6 +8,8 @@ import { Battery, Zap, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-reac
 import { cn } from '../../lib/utils';
 import { useNavigation } from '../../context/NavigationContext';
 import { reverseGeocode } from '../../services/geocoding';
+import { useTelemetry } from '../../context/TelemetryContext';
+import { Badge } from '../../components/ui/Badge';
 
 export const DriverDashboard = () => {
   const location = useLocation();
@@ -21,9 +23,10 @@ export const DriverDashboard = () => {
 
   const [pickedLocation, setPickedLocation] = useState<{lat: number, lon: number, name?: string, loading: boolean, result?: any} | null>(null);
   const clickRequestId = useRef(0);
+  const { data, updateData, setConnectionMode } = useTelemetry();
   
-  // Vehicle Simulation State
-  const [overrideState, setOverrideState] = useState<'AUTONOMOUS' | 'TAKING_CONTROL' | 'MANUAL'>('AUTONOMOUS');
+  // Vehicle Simulation State (Moved some to context, keep override state local or push to context)
+  const [overrideState, setOverrideState] = useState<'AUTONOMOUS' | 'TAKING_CONTROL' | 'MANUAL'>(data.autonomousMode ? 'AUTONOMOUS' : 'MANUAL');
   const [overrideHoldTime, setOverrideHoldTime] = useState(0);
   const holdTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -39,6 +42,7 @@ export const DriverDashboard = () => {
       setOverrideHoldTime(time);
       if (time >= 2000) {
         setOverrideState('MANUAL');
+        updateData({ autonomousMode: false });
         if (holdTimer.current) {
           clearInterval(holdTimer.current);
           holdTimer.current = null;
@@ -54,12 +58,22 @@ export const DriverDashboard = () => {
       holdTimer.current = null;
     }
     setOverrideState('AUTONOMOUS');
+    updateData({ autonomousMode: true });
     setOverrideHoldTime(0);
   };
 
   useEffect(() => {
     return () => { if (holdTimer.current) clearInterval(holdTimer.current); };
   }, []);
+
+  useEffect(() => {
+    // Sync Navigation's isDemoMode with Telemetry's connectionMode
+    if (data.connectionMode === 'DEMO' && !isDemoMode) {
+      setIsDemoMode(true);
+    } else if (data.connectionMode === 'LIVE' && isDemoMode) {
+      setIsDemoMode(false);
+    }
+  }, [data.connectionMode, isDemoMode, setIsDemoMode]);
 
   const handleMapClick = async (lat: number, lon: number, featureName?: string) => {
     if (navState === 'NAVIGATING' || navState === 'RECALCULATING') return;
@@ -121,7 +135,14 @@ export const DriverDashboard = () => {
 
           {/* Top Right: Status */}
           <div className="absolute top-6 right-6 z-10 flex flex-col gap-2 items-end">
-            <GPSStatus gpsState={gpsState} accuracy={currentLocation?.accuracy || null} onEnableGPS={() => setIsDemoMode(!isDemoMode)} />
+            <GPSStatus 
+              gpsState={gpsState} 
+              accuracy={currentLocation?.accuracy || null} 
+              onEnableGPS={() => {
+                const next = data.connectionMode === 'DEMO' ? 'LIVE' : 'DEMO';
+                setConnectionMode(next);
+              }} 
+            />
             {navState === 'RECALCULATING' && (
               <div className="glass-panel px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-500 flex items-center gap-2 shadow-lg">
                 <RefreshCw className="w-3 h-3 animate-spin" />
@@ -161,10 +182,9 @@ export const DriverDashboard = () => {
             <div className="glass-panel-elevated rounded-2xl p-5 border border-border">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-xs font-bold tracking-widest text-primary-muted">SYSTEM STATUS</h4>
-                <div className={cn("px-2 py-1 rounded text-[10px] font-bold flex items-center gap-2", overrideState === 'MANUAL' ? "bg-red-500/20 text-red-500" : overrideState === 'TAKING_CONTROL' ? "bg-amber-500/20 text-amber-500" : "bg-accent/20 text-accent")}>
-                  <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", overrideState === 'MANUAL' ? "bg-red-500" : overrideState === 'TAKING_CONTROL' ? "bg-amber-500" : "bg-accent")} />
+                <Badge variant={overrideState === 'MANUAL' ? 'CRITICAL' : overrideState === 'TAKING_CONTROL' ? 'WARNING' : 'ACTIVE'} dot>
                   {overrideState === 'MANUAL' ? "MANUAL" : overrideState === 'TAKING_CONTROL' ? "TAKING CONTROL..." : "AUTONOMOUS"}
-                </div>
+                </Badge>
               </div>
               <div className="flex justify-between items-end">
                 <div>
@@ -173,8 +193,17 @@ export const DriverDashboard = () => {
                 </div>
                 <div className="text-right flex flex-col items-end">
                   <div className="text-[10px] text-primary-muted mb-2 font-semibold uppercase tracking-wider">Mode</div>
-                  <button onClick={() => setIsDemoMode(!isDemoMode)} className={cn("text-xs font-bold px-3 py-1 rounded-full border transition-colors", isDemoMode ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-surface-elevated text-primary-muted border-border hover:text-primary")}>
-                    {isDemoMode ? 'DEMO MODE' : 'LIVE MODE'}
+                  <button 
+                    onClick={() => {
+                      const next = data.connectionMode === 'DEMO' ? 'LIVE' : 'DEMO';
+                      setConnectionMode(next);
+                    }} 
+                    className={cn(
+                      "text-xs font-bold px-3 py-1 rounded-full border transition-colors", 
+                      data.connectionMode === 'DEMO' ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-surface-elevated text-primary-muted border-border hover:text-primary"
+                    )}
+                  >
+                    {data.connectionMode === 'DEMO' ? 'DEMO MODE' : 'LIVE MODE'}
                   </button>
                 </div>
               </div>
@@ -191,16 +220,18 @@ export const DriverDashboard = () => {
             <div className="glass-panel-elevated rounded-2xl p-5 grid grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center gap-1.5 text-primary-muted mb-1"><Battery className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase tracking-wider">Battery</span></div>
-                <div className="text-xl font-semibold">78%</div>
+                <div className="text-xl font-semibold">{data.batteryLevel.toFixed(0)}%</div>
               </div>
               <div>
                 <div className="flex items-center gap-1.5 text-primary-muted mb-1"><Zap className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase tracking-wider">Range</span></div>
-                <div className="text-xl font-semibold">312 <span className="text-xs text-primary-muted">km</span></div>
+                <div className="text-xl font-semibold">{data.rangeKm.toFixed(0)} <span className="text-xs text-primary-muted">km</span></div>
               </div>
               <div className="col-span-2 h-px bg-border my-1" />
               <div className="col-span-2 flex justify-between items-center text-sm">
                 <span className="text-primary-muted font-medium">Sensors</span>
-                <span className="font-semibold text-green-500">12 / 12 ONLINE</span>
+                <Badge variant={data.status === 'HEALTHY' ? 'ACTIVE' : 'WARNING'} dot className="border-transparent">
+                  {data.status === 'HEALTHY' ? '12 / 12 ONLINE' : 'DEGRADED'}
+                </Badge>
               </div>
             </div>
           </div>

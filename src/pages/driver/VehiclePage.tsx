@@ -3,9 +3,12 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Battery, Car, Gauge, Thermometer, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTelemetry } from '../../context/TelemetryContext';
+import { Badge } from '../../components/ui/Badge';
 
 export const VehiclePage = () => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const { data } = useTelemetry();
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -154,21 +157,15 @@ export const VehiclePage = () => {
     </div>
   );
 
-  const StatusRow = ({ label, value, status }: { label: string, value?: string, status?: 'nominal' | 'warning' | 'error' | 'active' }) => (
+  const StatusRow = ({ label, value, status }: { label: string, value?: string, status?: string }) => (
     <div className="flex justify-between items-center py-2.5 border-b border-border/50 last:border-0">
       <span className="text-sm font-medium text-primary-muted">{label}</span>
       <div className="flex items-center gap-3">
         {value && <span className="font-semibold text-primary">{value}</span>}
         {status && (
-          <span className={cn(
-            "text-[10px] font-bold tracking-wider px-2 py-0.5 rounded uppercase",
-            status === 'nominal' ? "bg-green-500/10 text-green-500 border border-green-500/20" :
-            status === 'active' ? "bg-accent/10 text-accent border border-accent/20" :
-            status === 'warning' ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
-            "bg-red-500/10 text-red-500 border border-red-500/20"
-          )}>
-            {status === 'nominal' ? 'NOMINAL' : status === 'active' ? 'ACTIVE' : status}
-          </span>
+          <Badge variant={status === 'nominal' ? 'NOMINAL' : status === 'active' ? 'ACTIVE' : status.toUpperCase()}>
+            {status}
+          </Badge>
         )}
       </div>
     </div>
@@ -179,11 +176,9 @@ export const VehiclePage = () => {
       <span className="text-sm font-medium text-primary-muted">{label}</span>
       <div className="flex items-center gap-4">
         <span className="text-sm font-mono text-primary/80">{ratio}</span>
-        <span className={cn("text-[10px] font-bold tracking-wider px-2 py-0.5 rounded uppercase", 
-          status === 'ONLINE' || status === 'CONNECTED' ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"
-        )}>
+        <Badge variant={status === 'ONLINE' || status === 'CONNECTED' ? 'ACTIVE' : 'CRITICAL'}>
           {status}
-        </span>
+        </Badge>
       </div>
     </div>
   );
@@ -242,11 +237,11 @@ export const VehiclePage = () => {
             
             {/* VEHICLE STATUS */}
             <Card title="Vehicle Status">
-              <StatusRow label="Drive System" status="nominal" />
-              <StatusRow label="Autonomous System" status="active" />
-              <StatusRow label="Battery" value="78%" />
-              <StatusRow label="Range" value="312 km" />
-              <StatusRow label="Speed" value="0 km/h" />
+              <StatusRow label="Drive System" status={data.status === 'HEALTHY' ? 'nominal' : 'degraded'} />
+              <StatusRow label="Autonomous System" status={data.autonomousMode ? 'active' : 'OFFLINE'} />
+              <StatusRow label="Battery" value={`${data.batteryLevel.toFixed(0)}%`} />
+              <StatusRow label="Range" value={`${data.rangeKm.toFixed(0)} km`} />
+              <StatusRow label="Speed" value={`${data.speed.toFixed(0)} km/h`} />
             </Card>
 
             {/* SENSOR NETWORK */}

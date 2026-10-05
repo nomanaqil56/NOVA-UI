@@ -1,6 +1,10 @@
-import { Activity, Battery, Camera, Circle, Compass, Crosshair, Map, Navigation, ShieldCheck } from 'lucide-react';
+import { Activity, Battery, Camera, Compass, Crosshair, Map, Navigation, ShieldCheck } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
+import { Badge } from '../../components/ui/Badge';
+import { useTelemetry } from '../../context/TelemetryContext';
+import { useToast } from '../../context/ToastContext';
+import { RefreshCw, Play } from 'lucide-react';
 
 const systems = [
   { id: 'lidar', name: 'LiDAR Array', status: 'ONLINE', icon: Crosshair },
@@ -15,6 +19,18 @@ const systems = [
 
 export const DiagnosticsPage = () => {
   const [activeSystem, setActiveSystem] = useState(systems[0]);
+  const [isRunning, setIsRunning] = useState(false);
+  const { data } = useTelemetry();
+  const { addToast } = useToast();
+
+  const handleRunDiagnostic = () => {
+    setIsRunning(true);
+    addToast('info', `Running diagnostic on ${activeSystem.name}...`);
+    setTimeout(() => {
+      setIsRunning(false);
+      addToast('success', `${activeSystem.name} diagnostic completed. No issues found.`);
+    }, 2500);
+  };
 
   return (
     <div className="w-full h-full bg-[#080A0D] p-6 lg:p-8 text-primary overflow-y-auto hide-scrollbar flex flex-col">
@@ -29,9 +45,22 @@ export const DiagnosticsPage = () => {
             </h1>
             <p className="text-sm text-primary-muted mt-2 tracking-wide">NOVA Technician Terminal · Telemetry Diagnostics</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-light tracking-tight text-accent">VEHICLE #042</div>
-            <div className="text-[10px] font-bold tracking-widest text-primary-muted mt-1 uppercase">Connection: SECURE TCP</div>
+          <div className="flex items-center gap-6 text-right">
+            <div>
+              <div className="text-2xl font-light tracking-tight text-accent">VEHICLE #042</div>
+              <div className="text-[10px] font-bold tracking-widest text-primary-muted mt-1 uppercase flex items-center justify-end gap-1">
+                <div className={cn("w-1.5 h-1.5 rounded-full", data.connectionState === 'CONNECTED' ? 'bg-green-500' : 'bg-red-500')} />
+                {data.connectionState === 'CONNECTED' ? 'SECURE TCP' : 'DISCONNECTED'}
+              </div>
+            </div>
+            <button 
+              onClick={handleRunDiagnostic}
+              disabled={isRunning || data.connectionState !== 'CONNECTED'}
+              className="bg-accent text-black px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest uppercase hover:bg-[#33dbff] transition-all shadow-[0_0_15px_rgba(0,210,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} 
+              {isRunning ? 'Running...' : 'Run Diagnostic'}
+            </button>
           </div>
         </div>
 
@@ -61,10 +90,7 @@ export const DiagnosticsPage = () => {
                         <Icon className={cn("w-4 h-4", activeSystem.id === sys.id ? "text-accent" : "text-primary-muted")} />
                         <span className={cn("text-sm font-medium tracking-wide uppercase", activeSystem.id === sys.id ? "text-white" : "text-primary")}>{sys.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold tracking-widest text-primary-muted uppercase">{sys.status}</span>
-                        <Circle className="w-2.5 h-2.5 fill-green-500 text-green-500" />
-                      </div>
+                        <Badge variant={sys.status} dot>{sys.status}</Badge>
                     </button>
                   );
                 })}
@@ -88,8 +114,8 @@ export const DiagnosticsPage = () => {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-black/40 p-4 rounded-xl border border-border/50">
-                  <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-1">Status</div>
-                  <div className="text-green-500 font-medium">ONLINE</div>
+                  <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-2">Status</div>
+                  <Badge variant="ACTIVE">ONLINE</Badge>
                 </div>
                 <div className="bg-black/40 p-4 rounded-xl border border-border/50">
                   <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-1">Latency</div>
@@ -129,9 +155,21 @@ export const DiagnosticsPage = () => {
                   </div>
                 )}
                 {activeSystem.id !== 'lidar' && activeSystem.id !== 'cameras' && (
-                  <div className="relative z-10 text-center">
-                    <Activity className="w-12 h-12 text-primary-muted/20 mx-auto mb-4" />
-                    <div className="text-xs font-mono text-primary-muted/50 uppercase tracking-widest">Telemetry Visualization Offline</div>
+                  <div className="relative z-10 w-full h-full p-6 flex flex-col justify-center items-center">
+                    <div className="flex gap-12 text-center">
+                      <div className="glass-panel p-4 rounded-xl border border-border/50 min-w-[120px]">
+                        <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-2">Signal Strength</div>
+                        <div className="text-2xl font-light text-white font-mono">98%</div>
+                      </div>
+                      <div className="glass-panel p-4 rounded-xl border border-border/50 min-w-[120px]">
+                        <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-2">Bus Load</div>
+                        <div className="text-2xl font-light text-accent font-mono">14.2%</div>
+                      </div>
+                      <div className="glass-panel p-4 rounded-xl border border-border/50 min-w-[120px]">
+                        <div className="text-[10px] font-bold tracking-widest text-primary-muted uppercase mb-2">Sys Temp</div>
+                        <div className="text-2xl font-light text-white font-mono">42°C</div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
-import { AlertCircle, AlertTriangle, Bell, CheckCircle2, Filter, ShieldAlert } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Bell, CheckCircle2, Filter, ShieldAlert, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Badge } from '../../components/ui/Badge';
+import { useToast } from '../../context/ToastContext';
 
 type Severity = 'CRITICAL' | 'WARNING' | 'INFO';
 type Category = 'Vehicle' | 'Sensor' | 'Navigation' | 'Safety' | 'System';
@@ -88,9 +90,16 @@ const CATEGORIES: Category[] = ['Vehicle', 'Sensor', 'Navigation', 'Safety', 'Sy
 export const AlertsPage = () => {
   const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | Category>('ALL');
+  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+  const { addToast } = useToast();
+
+  const handleAcknowledge = (id: string, title: string) => {
+    setAlerts(prev => prev.filter(a => a.id !== id));
+    addToast('success', `Alert acknowledged: ${title}`);
+  };
 
   const filteredAlerts = useMemo(() => {
-    return mockAlerts.filter(alert => {
+    return alerts.filter(alert => {
       if (severityFilter !== 'ALL' && alert.severity !== severityFilter) return false;
       if (categoryFilter !== 'ALL' && alert.category !== categoryFilter) return false;
       return true;
@@ -99,25 +108,17 @@ export const AlertsPage = () => {
 
   const counts = useMemo(() => {
     return {
-      CRITICAL: mockAlerts.filter(a => a.severity === 'CRITICAL').length,
-      WARNING: mockAlerts.filter(a => a.severity === 'WARNING').length,
-      INFO: mockAlerts.filter(a => a.severity === 'INFO').length,
+      CRITICAL: alerts.filter(a => a.severity === 'CRITICAL').length,
+      WARNING: alerts.filter(a => a.severity === 'WARNING').length,
+      INFO: alerts.filter(a => a.severity === 'INFO').length,
     };
-  }, []);
+  }, [alerts]);
 
   const getSeverityIcon = (severity: Severity) => {
     switch (severity) {
       case 'CRITICAL': return <AlertCircle className="w-5 h-5 text-red-500" />;
       case 'WARNING': return <AlertTriangle className="w-5 h-5 text-amber-500" />;
       case 'INFO': return <CheckCircle2 className="w-5 h-5 text-accent" />; // Using check for info to match user example
-    }
-  };
-
-  const getSeverityColor = (severity: Severity) => {
-    switch (severity) {
-      case 'CRITICAL': return 'text-red-500 bg-red-500/10 border-red-500/30';
-      case 'WARNING': return 'text-amber-500 bg-amber-500/10 border-amber-500/30';
-      case 'INFO': return 'text-accent bg-accent/10 border-accent/30';
     }
   };
 
@@ -220,20 +221,24 @@ export const AlertsPage = () => {
             filteredAlerts.map((alert) => (
               <div key={alert.id} className="glass-panel-elevated p-6 rounded-2xl border border-border group hover:border-border/80 transition-colors">
                 
-                {/* Alert Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     {getSeverityIcon(alert.severity)}
-                    <span className={cn(
-                      "text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded border",
-                      getSeverityColor(alert.severity)
-                    )}>
+                    <Badge variant={alert.severity}>
                       {alert.category}
-                    </span>
+                    </Badge>
                     <span className="text-xs font-mono text-primary-muted opacity-50">{alert.id}</span>
                   </div>
-                  <div className="text-xs font-medium text-primary-muted whitespace-nowrap">
-                    {alert.timestamp}
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs font-medium text-primary-muted whitespace-nowrap">
+                      {alert.timestamp}
+                    </div>
+                    <button 
+                      onClick={() => handleAcknowledge(alert.id, alert.title)}
+                      className="text-xs font-bold text-accent hover:text-[#33dbff] transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100"
+                    >
+                      <Check className="w-4 h-4" /> ACKNOWLEDGE
+                    </button>
                   </div>
                 </div>
 

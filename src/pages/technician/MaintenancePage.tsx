@@ -1,4 +1,5 @@
 import { Calendar, PenTool, Clock } from 'lucide-react';
+import { Badge } from '../../components/ui/Badge';
 
 export const MaintenancePage = () => {
   return (
@@ -39,7 +40,7 @@ export const MaintenancePage = () => {
               <div className="glass-panel-elevated p-6 rounded-2xl border border-border group-hover:border-border/80 transition-colors">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-medium text-white tracking-tight">LiDAR Calibration</h3>
-                  <span className="text-[10px] font-bold tracking-widest text-green-500 bg-green-500/10 px-2 py-0.5 rounded uppercase border border-green-500/20">SUCCESS</span>
+                  <Badge variant="SUCCESS">SUCCESS</Badge>
                 </div>
                 <div className="text-xs font-medium text-primary-muted flex items-center gap-2 mb-4">
                   <Clock className="w-3.5 h-3.5" /> 02 OCT 2026
@@ -57,7 +58,7 @@ export const MaintenancePage = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <div className="flex justify-between items-start mb-2 relative z-10">
                   <h3 className="text-lg font-medium text-white tracking-tight">Camera Diagnostic</h3>
-                  <span className="text-[10px] font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded uppercase border border-amber-500/20">2 ANOMALIES</span>
+                  <Badge variant="WARNING">2 ANOMALIES</Badge>
                 </div>
                 <div className="text-xs font-medium text-primary-muted flex items-center gap-2 mb-4 relative z-10">
                   <Clock className="w-3.5 h-3.5" /> 01 OCT 2026
@@ -77,7 +78,7 @@ export const MaintenancePage = () => {
               <div className="glass-panel-elevated p-6 rounded-2xl border border-border group-hover:border-border/80 transition-colors">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-medium text-white tracking-tight">Brake Inspection</h3>
-                  <span className="text-[10px] font-bold tracking-widest text-green-500 bg-green-500/10 px-2 py-0.5 rounded uppercase border border-green-500/20">SUCCESS</span>
+                  <Badge variant="SUCCESS">SUCCESS</Badge>
                 </div>
                 <div className="text-xs font-medium text-primary-muted flex items-center gap-2 mb-4">
                   <Clock className="w-3.5 h-3.5" /> 28 SEP 2026
@@ -94,7 +95,7 @@ export const MaintenancePage = () => {
               <div className="glass-panel p-6 rounded-2xl border border-border group-hover:border-border/80 transition-colors opacity-75">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-medium text-white tracking-tight">Factory Rollout</h3>
-                  <span className="text-[10px] font-bold tracking-widest text-primary-muted bg-surface px-2 py-0.5 rounded uppercase border border-border">INITIALIZED</span>
+                  <Badge variant="NOMINAL">INITIALIZED</Badge>
                 </div>
                 <div className="text-xs font-medium text-primary-muted flex items-center gap-2 mb-4">
                   <Clock className="w-3.5 h-3.5" /> 14 AUG 2026

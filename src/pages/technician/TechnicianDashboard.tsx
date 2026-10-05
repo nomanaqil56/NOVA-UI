@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal, ShieldAlert, CheckSquare, Wrench } from 'lucide-react';
+import { Terminal, ShieldAlert, CheckSquare, Wrench, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Badge } from '../../components/ui/Badge';
+import { useNavigate } from 'react-router-dom';
 
 export const TechnicianDashboard = () => {
+  const navigate = useNavigate();
   const [consoleOutput, setConsoleOutput] = useState([
     { text: 'SYSTEM: ONLINE', type: 'info' },
     { text: 'Waiting for commands...', type: 'muted' }
@@ -107,34 +110,49 @@ export const TechnicianDashboard = () => {
         </div>
 
         {/* Issue Tracker */}
-        <div className="glass-panel-elevated rounded-2xl p-6 border border-border flex flex-col h-96">
-          <h3 className="text-sm font-bold tracking-widest text-primary-muted mb-6 flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-accent" /> ACTIVE ISSUES
-          </h3>
+        <div className="glass-panel-elevated rounded-2xl p-6 border border-border flex flex-col h-96 group">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold tracking-widest text-primary-muted flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-accent" /> ACTIVE ISSUES
+            </h3>
+            <button onClick={() => navigate('issues')} className="text-[10px] font-bold text-accent hover:text-white transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100 uppercase tracking-widest">
+              View All <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
           <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
-            <IssueItem title="Front LiDAR calibration" vehicle="Vehicle #042" severity="HIGH" time="12m ago" />
-            <IssueItem title="Camera module sync error" vehicle="Vehicle #018" severity="MEDIUM" time="1h ago" />
-            <IssueItem title="Battery thermal variance" vehicle="Vehicle #031" severity="LOW" time="3h ago" />
+            <IssueItem title="Front LiDAR calibration" vehicle="Vehicle #042" severity="CRITICAL" time="12m ago" />
+            <IssueItem title="Camera module sync error" vehicle="Vehicle #018" severity="WARNING" time="1h ago" />
+            <IssueItem title="Battery thermal variance" vehicle="Vehicle #031" severity="INFO" time="3h ago" />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        <div className="glass-panel-elevated rounded-2xl p-6 border border-border">
-          <h3 className="text-sm font-bold tracking-widest text-primary-muted mb-6 flex items-center gap-2">
-            <CheckSquare className="w-4 h-4 text-accent" /> SYSTEM TESTING
-          </h3>
+        <div className="glass-panel-elevated rounded-2xl p-6 border border-border group">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold tracking-widest text-primary-muted flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-accent" /> SYSTEM TESTING
+            </h3>
+            <button onClick={() => navigate('tests')} className="text-[10px] font-bold text-accent hover:text-white transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100 uppercase tracking-widest">
+              Run Tests <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
           <div className="flex flex-col gap-4">
-            <TestItem name="Full Vehicle Diagnostic" status="READY" />
-            <TestItem name="Sensor Integrity Check" status="RUNNING" progress={82} />
-            <TestItem name="Brake System Test" status="PASSED" />
+            <TestItem name="Full Vehicle Diagnostic" status="OFFLINE" />
+            <TestItem name="Sensor Integrity Check" status="UPDATING" progress={82} />
+            <TestItem name="Brake System Test" status="SUCCESS" />
           </div>
         </div>
 
-        <div className="glass-panel-elevated rounded-2xl p-6 border border-border">
-          <h3 className="text-sm font-bold tracking-widest text-primary-muted mb-6 flex items-center gap-2">
-            <Wrench className="w-4 h-4 text-accent" /> MAINTENANCE HISTORY
-          </h3>
+        <div className="glass-panel-elevated rounded-2xl p-6 border border-border group">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold tracking-widest text-primary-muted flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-accent" /> MAINTENANCE HISTORY
+            </h3>
+            <button onClick={() => navigate('maintenance')} className="text-[10px] font-bold text-accent hover:text-white transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100 uppercase tracking-widest">
+              Full Log <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
           <div className="relative border-l border-border ml-2 pl-4 py-2 flex flex-col gap-6 text-sm">
             <TimelineItem date="02 OCT 2026" time="14:32" desc="LiDAR calibration performed" tech="Alex Kumar" result="SUCCESS" />
             <TimelineItem date="01 OCT 2026" time="09:18" desc="Camera diagnostic executed" result="2 anomalies detected" warning />
@@ -147,16 +165,11 @@ export const TechnicianDashboard = () => {
 };
 
 const IssueItem = ({ title, vehicle, severity, time }: any) => {
-  const colors = {
-    HIGH: 'text-red-500 border-red-500/30',
-    MEDIUM: 'text-amber-500 border-amber-500/30',
-    LOW: 'text-primary-muted border-border',
-  };
   return (
     <div className="p-4 rounded-xl border border-border bg-surface hover:bg-surface-elevated transition-colors cursor-pointer">
       <div className="flex justify-between items-start mb-2">
         <span className="font-medium">{title}</span>
-        <span className={cn("text-[10px] px-2 py-0.5 rounded border font-bold", colors[severity as keyof typeof colors])}>{severity}</span>
+        <Badge variant={severity}>{severity}</Badge>
       </div>
       <div className="flex justify-between text-xs text-primary-muted">
         <span>{vehicle}</span>
@@ -171,14 +184,11 @@ const TestItem = ({ name, status, progress }: any) => {
     <div className="p-4 rounded-xl border border-border bg-surface flex flex-col gap-3">
       <div className="flex justify-between items-center">
         <span className="font-medium text-sm">{name}</span>
-        <span className={cn(
-          "text-[10px] px-2 py-0.5 rounded font-bold tracking-wider",
-          status === 'READY' && 'bg-surface-elevated text-primary-muted border border-border',
-          status === 'RUNNING' && 'bg-accent/10 text-accent border border-accent/30 animate-pulse',
-          status === 'PASSED' && 'bg-green-500/10 text-green-500 border border-green-500/30'
-        )}>{status}</span>
+        <Badge variant={status}>
+          {status === 'UPDATING' ? 'RUNNING' : status === 'OFFLINE' ? 'READY' : status}
+        </Badge>
       </div>
-      {status === 'RUNNING' && progress && (
+      {status === 'UPDATING' && progress && (
         <div className="w-full h-1 bg-surface-elevated rounded-full overflow-hidden">
           <div className="h-full bg-accent" style={{ width: `${progress}%` }} />
         </div>

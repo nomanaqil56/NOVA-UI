@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Ban, Edit2, Key, MoreVertical, Search, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Ban, Edit2, Key, MoreVertical, Search, UserCheck, UserPlus, Users, Loader2 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
 import { cn } from '../../lib/utils';
 
 interface User {
@@ -23,11 +26,59 @@ const mockUsers: User[] = [
 export const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const { addToast } = useToast();
+  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [modalState, setModalState] = useState<{ isOpen: boolean; type: 'SUSPEND' | 'RESET' | null; user: User | null }>({ isOpen: false, type: null, user: null });
 
-  const filteredUsers = mockUsers.filter(u => 
+  const filteredUsers = users.filter(u => 
     u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     u.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleAddUser = () => {
+    setIsAddingUser(true);
+    setTimeout(() => {
+      const newUser: User = {
+        id: `USR-00${users.length + 1}`,
+        name: 'New Operator',
+        role: 'Driver',
+        status: 'ACTIVE',
+        lastSeen: 'Just now',
+        email: `operator${users.length + 1}@nova.fleet`
+      };
+      setUsers([newUser, ...users]);
+      setIsAddingUser(false);
+      addToast('success', 'New user added successfully.');
+    }, 1500);
+  };
+
+  const handleAction = (action: string, user: User) => {
+    setActiveMenuId(null);
+    if (action === 'SUSPEND' || action === 'RESET') {
+      setModalState({ isOpen: true, type: action as 'SUSPEND' | 'RESET', user });
+    } else if (action === 'EDIT') {
+      addToast('info', `Opening role editor for ${user.name}...`);
+    } else if (action === 'VIEW') {
+      addToast('info', `Viewing profile for ${user.name}...`);
+    }
+  };
+
+  const confirmAction = () => {
+    if (!modalState.user || !modalState.type) return;
+    
+    if (modalState.type === 'SUSPEND') {
+      setUsers(users.map(u => u.id === modalState.user!.id ? { ...u, status: 'SUSPENDED' as const } : u));
+      addToast('critical', `User ${modalState.user.name} suspended.`);
+    } else if (modalState.type === 'RESET') {
+      addToast('success', `Password reset link sent to ${modalState.user.email}.`);
+    }
+    setModalState({ isOpen: false, type: null, user: null });
+  };
+
+  const activeCount = users.filter(u => u.status === 'ACTIVE').length;
+  const pendingCount = users.filter(u => u.status === 'OFFLINE').length; // using offline as proxy for pending for mock
+  const adminCount = users.filter(u => u.role === 'Admin').length;
 
   return (
     <div className="w-full h-full bg-[#080A0D] p-6 lg:p-8 text-primary overflow-y-auto hide-scrollbar flex flex-col">
@@ -46,15 +97,15 @@ export const UsersPage = () => {
           <div className="flex gap-4">
             <div className="glass-panel px-6 py-3 rounded-xl border border-border flex flex-col items-center min-w-[100px]">
               <span className="text-[10px] font-bold tracking-widest text-primary-muted mb-1 uppercase">Active</span>
-              <span className="text-2xl font-light tracking-tight text-white">42</span>
+              <span className="text-2xl font-light tracking-tight text-white">{activeCount}</span>
             </div>
             <div className="glass-panel px-6 py-3 rounded-xl border border-border flex flex-col items-center min-w-[100px]">
               <span className="text-[10px] font-bold tracking-widest text-amber-500 mb-1 uppercase">Pending</span>
-              <span className="text-2xl font-light tracking-tight text-white">3</span>
+              <span className="text-2xl font-light tracking-tight text-white">{pendingCount}</span>
             </div>
             <div className="glass-panel px-6 py-3 rounded-xl border border-border flex flex-col items-center min-w-[100px]">
               <span className="text-[10px] font-bold tracking-widest text-accent mb-1 uppercase">Admins</span>
-              <span className="text-2xl font-light tracking-tight text-white">4</span>
+              <span className="text-2xl font-light tracking-tight text-white">{adminCount}</span>
             </div>
           </div>
         </div>
@@ -71,8 +122,12 @@ export const UsersPage = () => {
               className="w-full bg-black/40 border border-border/50 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-primary-muted/50 focus:outline-none focus:border-accent transition-colors"
             />
           </div>
-          <button className="bg-accent text-black px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase flex items-center gap-2 hover:bg-[#33dbff] transition-colors shadow-[0_0_15px_rgba(0,210,255,0.2)]">
-            <UserPlus className="w-4 h-4" /> Add User
+          <button 
+            onClick={handleAddUser}
+            disabled={isAddingUser}
+            className="bg-accent text-black px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase flex items-center gap-2 hover:bg-[#33dbff] transition-colors shadow-[0_0_15px_rgba(0,210,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAddingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} Add User
           </button>
         </div>
 
@@ -101,26 +156,15 @@ export const UsersPage = () => {
                 </div>
 
                 <div className="col-span-3">
-                  <span className={cn(
-                    "text-[10px] font-bold tracking-wider uppercase px-2 py-1 rounded border",
-                    user.role === 'Admin' ? "bg-accent/10 text-accent border-accent/20" :
-                    user.role === 'Technician' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                    "bg-surface text-primary border-border"
-                  )}>
+                  <Badge variant={user.role === 'Admin' ? 'UPDATING' : user.role === 'Technician' ? 'WARNING' : 'OFFLINE'}>
                     {user.role}
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="col-span-2">
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-1.5 h-1.5 rounded-full",
-                      user.status === 'ACTIVE' ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" :
-                      user.status === 'SUSPENDED' ? "bg-red-500" :
-                      "bg-primary-muted/50"
-                    )} />
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-primary-muted">{user.status}</span>
-                  </div>
+                  <Badge variant={user.status} dot>
+                    {user.status}
+                  </Badge>
                 </div>
 
                 <div className="col-span-2 text-xs text-primary-muted">
@@ -139,11 +183,13 @@ export const UsersPage = () => {
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setActiveMenuId(null)} />
                       <div className="absolute right-8 top-8 w-48 bg-[#0a0d11] border border-border rounded-xl shadow-2xl z-20 py-2 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-                        <button className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><UserCheck className="w-4 h-4" /> VIEW PROFILE</button>
-                        <button className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><Edit2 className="w-4 h-4" /> EDIT ROLE</button>
+                        <button onClick={() => handleAction('VIEW', user)} className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><UserCheck className="w-4 h-4" /> VIEW PROFILE</button>
+                        <button onClick={() => handleAction('EDIT', user)} className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><Edit2 className="w-4 h-4" /> EDIT ROLE</button>
                         <div className="h-px bg-border/50 my-1 w-full" />
-                        <button className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><Key className="w-4 h-4" /> RESET ACCESS</button>
-                        <button className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left w-full"><Ban className="w-4 h-4" /> SUSPEND USER</button>
+                        <button onClick={() => handleAction('RESET', user)} className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-primary hover:bg-surface hover:text-white transition-colors text-left w-full"><Key className="w-4 h-4" /> RESET ACCESS</button>
+                        {user.status !== 'SUSPENDED' && (
+                          <button onClick={() => handleAction('SUSPEND', user)} className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left w-full"><Ban className="w-4 h-4" /> SUSPEND USER</button>
+                        )}
                       </div>
                     </>
                   )}
@@ -155,6 +201,46 @@ export const UsersPage = () => {
         </div>
 
       </div>
+
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ isOpen: false, type: null, user: null })}
+        title={modalState.type === 'SUSPEND' ? 'Confirm Suspension' : 'Reset Access'}
+        destructive={modalState.type === 'SUSPEND'}
+        actions={
+          <>
+            <button 
+              onClick={() => setModalState({ isOpen: false, type: null, user: null })}
+              className="px-4 py-2 rounded-lg text-xs font-bold tracking-widest uppercase text-primary-muted hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={confirmAction}
+              className={cn(
+                "px-6 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors shadow-lg",
+                modalState.type === 'SUSPEND' 
+                  ? "bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20"
+                  : "bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20"
+              )}
+            >
+              {modalState.type === 'SUSPEND' ? 'Suspend User' : 'Send Reset Link'}
+            </button>
+          </>
+        }
+      >
+        {modalState.type === 'SUSPEND' ? (
+          <p>
+            Are you sure you want to suspend <span className="text-white font-bold">{modalState.user?.name}</span>? 
+            They will immediately lose access to all NOVA fleet control systems and active sessions will be terminated.
+          </p>
+        ) : (
+          <p>
+            Are you sure you want to reset access for <span className="text-white font-bold">{modalState.user?.name}</span>? 
+            A password reset link will be sent to <span className="text-white font-mono">{modalState.user?.email}</span>.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 };
