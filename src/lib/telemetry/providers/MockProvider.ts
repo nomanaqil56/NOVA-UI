@@ -1,5 +1,5 @@
 import type { VehicleDataProvider, TelemetrySubscriber } from '../VehicleDataProvider';
-import type { TelemetryData } from '../types';
+import type { TelemetryData, DriveMode } from '../types';
 
 const defaultData: TelemetryData = {
   vehicleId: 'Vehicle 042',
@@ -45,10 +45,39 @@ export class MockProvider implements VehicleDataProvider {
     return () => this.subscribers.delete(callback);
   }
 
-  updateState(updates: Partial<TelemetryData>): void {
-    this.data = { ...this.data, ...updates };
+  // --- Semantic Commands ---
+
+  async setDriveMode(mode: DriveMode): Promise<void> {
+    this.data = { ...this.data, driveMode: mode };
     this.notifySubscribers();
   }
+
+  async setAutonomousMode(enabled: boolean): Promise<void> {
+    this.data = { ...this.data, autonomousMode: enabled };
+    this.notifySubscribers();
+  }
+
+  async requestDiagnostics(): Promise<void> {
+    // In a real system, this would trigger a hardware scan.
+    // For mock, we simply acknowledge it.
+    console.log("Mock: Diagnostics requested");
+  }
+
+  async acknowledgeAlert(alertId: string): Promise<void> {
+    console.log(`Mock: Acknowledged alert ${alertId}`);
+    this.data = { 
+      ...this.data, 
+      activeAlertsCount: Math.max(0, this.data.activeAlertsCount - 1) 
+    };
+    this.notifySubscribers();
+  }
+
+  async updateSoftware(version: string): Promise<void> {
+    this.data = { ...this.data, osVersion: version, status: 'HEALTHY' };
+    this.notifySubscribers();
+  }
+
+  // --- Internal Simulation Logic ---
 
   private notifySubscribers() {
     for (const callback of this.subscribers) {

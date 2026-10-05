@@ -1,4 +1,4 @@
-import type { TelemetryData } from './types';
+import type { TelemetryData, DriveMode } from './types';
 
 export type TelemetrySubscriber = (data: TelemetryData) => void;
 
@@ -21,8 +21,12 @@ export interface VehicleDataProvider {
   subscribe(callback: TelemetrySubscriber): () => void;
 
   /**
-   * Send state updates back to the vehicle/provider.
-   * In a real implementation, this would be an RPC or CAN message command.
+   * Semantic Vehicle Commands
+   * These replace the raw updateState approach for a true hardware interface.
    */
-  updateState(updates: Partial<TelemetryData>): void;
+  setDriveMode(mode: DriveMode): Promise<void>;
+  setAutonomousMode(enabled: boolean): Promise<void>;
+  requestDiagnostics(): Promise<void>;
+  acknowledgeAlert(alertId: string): Promise<void>;
+  updateSoftware(version: string): Promise<void>;
 }

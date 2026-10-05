@@ -11,7 +11,7 @@ export const SoftwarePage = () => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const { addToast } = useToast();
-  const { data, updateData } = useTelemetry();
+  const { data, commands } = useTelemetry();
 
   const handleDeploy = () => {
     setIsDeploying(true);
@@ -21,7 +21,7 @@ export const SoftwarePage = () => {
     setTimeout(() => {
       setIsDeploying(false);
       addToast('success', 'NOVA OS 4.9.0 deployed successfully.');
-      updateData({ osVersion: '4.9.0' });
+      commands.updateSoftware('4.9.0');
     }, 3000);
   };
 

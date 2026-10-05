@@ -1,43 +1,51 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { TelemetryData } from '../lib/telemetry/types';
-import { MockProvider } from '../lib/telemetry/providers/MockProvider';
+import type { TelemetryData, DriveMode } from '../lib/telemetry/types';
+import { VehicleDataService } from '../lib/telemetry/VehicleDataService';
 import type { VehicleDataProvider } from '../lib/telemetry/VehicleDataProvider';
 
 interface TelemetryContextType {
   data: TelemetryData;
-  updateData: (updates: Partial<TelemetryData>) => void;
+  commands: {
+    setDriveMode: (mode: DriveMode) => Promise<void>;
+    setAutonomousMode: (enabled: boolean) => Promise<void>;
+    requestDiagnostics: () => Promise<void>;
+    acknowledgeAlert: (alertId: string) => Promise<void>;
+    updateSoftware: (version: string) => Promise<void>;
+  };
 }
 
 const TelemetryContext = createContext<TelemetryContextType | undefined>(undefined);
 
-// Instantiate the data provider. 
-// For Phase 5, we use the MockProvider. 
-// In Phase 6, we can instantiate a BluetoothProvider here based on a toggle or environment variable.
-const vehicleProvider: VehicleDataProvider = new MockProvider();
-vehicleProvider.connect(); // Auto-connect the mock provider
-
 export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
+  const provider = useMemo<VehicleDataProvider>(() => VehicleDataService.getProvider(), []);
   const [data, setData] = useState<TelemetryData | null>(null);
 
   useEffect(() => {
-    // Subscribe to the provider. The provider manages the connection state and data flow independently of the UI.
-    const unsubscribe = vehicleProvider.subscribe((newData) => {
+    provider.connect();
+    
+    const unsubscribe = provider.subscribe((newData) => {
       setData(newData);
     });
 
-    return unsubscribe;
-  }, []);
+    return () => {
+      unsubscribe();
+      // Optional: disconnect on unmount, but for a global provider we might just leave it connected
+    };
+  }, [provider]);
 
-  const updateData = (updates: Partial<TelemetryData>) => {
-    vehicleProvider.updateState(updates);
-  };
+  const commands = useMemo(() => ({
+    setDriveMode: (mode: DriveMode) => provider.setDriveMode(mode),
+    setAutonomousMode: (enabled: boolean) => provider.setAutonomousMode(enabled),
+    requestDiagnostics: () => provider.requestDiagnostics(),
+    acknowledgeAlert: (alertId: string) => provider.acknowledgeAlert(alertId),
+    updateSoftware: (version: string) => provider.updateSoftware(version),
+  }), [provider]);
 
-  // Do not render children until initial data is available
   if (!data) return null;
 
   return (
-    <TelemetryContext.Provider value={{ data, updateData }}>
+    <TelemetryContext.Provider value={{ data, commands }}>
       {children}
     </TelemetryContext.Provider>
   );

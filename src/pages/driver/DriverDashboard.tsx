@@ -23,7 +23,7 @@ export const DriverDashboard = () => {
 
   const [pickedLocation, setPickedLocation] = useState<{lat: number, lon: number, name?: string, loading: boolean, result?: any} | null>(null);
   const clickRequestId = useRef(0);
-  const { data, updateData } = useTelemetry();
+  const { data, commands } = useTelemetry();
   
   // Vehicle Simulation State (Moved some to context, keep override state local or push to context)
   const [overrideState, setOverrideState] = useState<'AUTONOMOUS' | 'TAKING_CONTROL' | 'MANUAL'>(data.autonomousMode ? 'AUTONOMOUS' : 'MANUAL');
@@ -42,7 +42,7 @@ export const DriverDashboard = () => {
       setOverrideHoldTime(time);
       if (time >= 2000) {
         setOverrideState('MANUAL');
-        updateData({ autonomousMode: false });
+        commands.setAutonomousMode(false);
         if (holdTimer.current) {
           clearInterval(holdTimer.current);
           holdTimer.current = null;
@@ -58,7 +58,7 @@ export const DriverDashboard = () => {
       holdTimer.current = null;
     }
     setOverrideState('AUTONOMOUS');
-    updateData({ autonomousMode: true });
+    commands.setAutonomousMode(true);
     setOverrideHoldTime(0);
   };
 
