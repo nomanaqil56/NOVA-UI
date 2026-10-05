@@ -6,6 +6,9 @@ import { VehiclePage } from './pages/driver/VehiclePage';
 import { TripsPage } from './pages/driver/TripsPage';
 import { AlertsPage } from './pages/driver/AlertsPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { UsersPage } from './pages/admin/UsersPage';
+import { SystemPage } from './pages/admin/SystemPage';
+import { SoftwarePage } from './pages/admin/SoftwarePage';
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard';
 import { useRole } from './context/RoleContext';
 
@@ -41,10 +44,10 @@ function App() {
         
         <Route path="admin">
           <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<ModulePage title="Users" />} />
-          <Route path="system" element={<ModulePage title="System" />} />
-          <Route path="software" element={<ModulePage title="Software" />} />
-          <Route path="alerts" element={<ModulePage title="Alerts" />} />
+          <Route path="users" element={<UsersPage />} />
+          <Route path="system" element={<SystemPage />} />
+          <Route path="software" element={<SoftwarePage />} />
+          <Route path="alerts" element={<AlertsPage />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
         
