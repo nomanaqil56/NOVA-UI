@@ -76,10 +76,15 @@ export const DiagnosticsPage = () => {
           <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0 overflow-y-auto hide-scrollbar">
             
             <div className="glass-panel-elevated p-6 rounded-2xl border border-border">
-              <h3 className="text-xl font-light tracking-widest text-white uppercase mb-6 flex items-center gap-3">
-                <activeSystem.icon className="w-6 h-6 text-accent" />
-                {activeSystem.name} Details
-              </h3>
+              {(() => {
+                const ActiveIcon = activeSystem.icon;
+                return (
+                  <h3 className="text-xl font-light tracking-widest text-white uppercase mb-6 flex items-center gap-3">
+                    <ActiveIcon className="w-6 h-6 text-accent" />
+                    {activeSystem.name} Details
+                  </h3>
+                );
+              })()}
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-black/40 p-4 rounded-xl border border-border/50">
