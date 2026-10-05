@@ -200,8 +200,8 @@ export class NovaVehicle3DLayer implements CustomLayerInterface {
                 
                 // Apply fixed GLB orientation correction to map to MapLibre world space:
                 // MapLibre expects: +X = East (Right), +Y = North (Forward), +Z = Up
-                // Rotate X by 90 deg and Z by 180 deg to map (+X=Left, +Y=Up, +Z=Forward) -> (+X=Right, +Y=Forward, +Z=Up)
-                vehicleOrientationRoot.rotation.set(Math.PI / 2, 0, Math.PI, 'XYZ');
+                // Rotate X by 90 deg and Y by 180 deg to map (+X=Left, +Y=Up, +Z=Forward) -> (+X=Right, +Y=Forward, +Z=Up)
+                vehicleOrientationRoot.rotation.set(Math.PI / 2, Math.PI, 0, 'XYZ');
                 vehicleOrientationRoot.scale.setScalar(normalizedScale);
 
                 vehicleWorldRoot.add(vehicleOrientationRoot);
